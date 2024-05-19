@@ -71,14 +71,20 @@ peg::parser!{
 	    = paren_list() / bracket_list() / brace_list()
 	pub(crate) rule quoted_list() -> Vec<Sexpr>
 	    = ['\''] l:list() { l }
-	pub rule sexpr() -> Sexpr
+	pub(crate) rule sexpr() -> Sexpr
 	    = a:atom() { Sexpr::Atom(a) }
 	    / l:list() { Sexpr::List(l) }
-	    / q:quoted_list() { Sexpr::QuotedList(q) }
+	/ q:quoted_list() { Sexpr::QuotedList(q) }
+
+	pub rule file() -> File
+	    = [' '|'\t'|'\n'|'\r']* b:(sexpr() ** ([' '|'\t'|'\n'|'\r']*)) [' '|'\t'|'\n'|'\r']* { File { body: b.into_iter().map(|a| a).collect() } }
 	    
     }
 }
 
+pub fn parse(input: &str) -> Result<File, peg::error::ParseError<peg::str::LineCol>> {
+	parser::file(input)
+}
 
 #[cfg(test)]
 mod test {
@@ -157,5 +163,9 @@ mod test {
 	assert_eq!(parser::quoted_list("'(123 456)"), Ok(vec![Sexpr::Atom(Atom::Integer("123".to_string())), Sexpr::Atom(Atom::Integer("456".to_string()))]));
     }
 
+    #[test]
+    fn test_file() {
+	assert_eq!(parser::file("(123 456)"), Ok(File { body: vec![Sexpr::List(vec![Sexpr::Atom(Atom::Integer("123".to_string())), Sexpr::Atom(Atom::Integer("456".to_string()))])] }));
+	}
 
 }
