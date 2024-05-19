@@ -1,11 +1,35 @@
-use std::str::FromStr;
+use std::{str::FromStr, cell::RefCell};
 
 #[derive(Debug, PartialEq)]
 pub struct File {
+    index: RefCell<usize>,
     body: Vec<Sexpr>,
 }
 
-#[derive(Debug, PartialEq)]
+impl File {
+    pub fn new(body: Vec<Sexpr>) -> Self {
+	File {
+	    index: RefCell::new(0),
+	    body,
+	}
+    }
+}
+
+impl Iterator for File {
+    type Item = Sexpr;
+
+    fn next(&mut self) -> Option<Self::Item> {
+	let index = *self.index.borrow();
+	if index < self.body.len() {
+	    *self.index.borrow_mut() += 1;
+	    Some(self.body[index].clone())
+	} else {
+	    None
+	}
+    }
+}
+
+#[derive(Debug, PartialEq, Clone)]
 pub enum Atom {
     String(String),
     Integer(String),
@@ -15,7 +39,7 @@ pub enum Atom {
     Keyword(String),
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Sexpr {
     Atom(Atom),
     List(Vec<Sexpr>),
@@ -77,7 +101,7 @@ peg::parser!{
 	/ q:quoted_list() { Sexpr::QuotedList(q) }
 
 	pub rule file() -> File
-	    = [' '|'\t'|'\n'|'\r']* b:(sexpr() ** ([' '|'\t'|'\n'|'\r']*)) [' '|'\t'|'\n'|'\r']* { File { body: b.into_iter().map(|a| a).collect() } }
+	    = [' '|'\t'|'\n'|'\r']* b:(sexpr() ** ([' '|'\t'|'\n'|'\r']*)) [' '|'\t'|'\n'|'\r']* { File::new(b.into_iter().map(|a| a).collect()) }
 	    
     }
 }
