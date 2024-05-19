@@ -1,5 +1,5 @@
 use rug::Integer;
-
+use std::collections::HashMap;
 use crate::parser::Sexpr;
 
 use super::context::ContextFrame;
@@ -19,16 +19,51 @@ impl Value {
 	    raw: RawValue::String(value.to_string()),
 	}
     }
+    pub fn get_string(&self) -> Result<&String, Box<dyn std::error::Error>> {
+	match &self.raw {
+	    RawValue::String(s) => Ok(s),
+	    _ => todo!("error"),
+	}
+    }
+    pub fn is_string(&self) -> bool {
+	match &self.raw {
+	    RawValue::String(_) => true,
+	    _ => false,
+	}
+    }
     
     pub fn new_integer(value: &str) -> Self {
 	Value {
 	    raw: RawValue::Integer(Integer::from_str_radix(value, 10).unwrap()),
 	}
     }
+    pub fn new_integer_from_integer(value: Integer) -> Self {
+	Value {
+	    raw: RawValue::Integer(value),
+	}
+    }
+    pub fn get_integer(&self) -> Result<&Integer, Box<dyn std::error::Error>> {
+	match &self.raw {
+	    RawValue::Integer(i) => Ok(i),
+	    _ => todo!("error"),
+	}
+    }
 
     pub fn new_float(value: f64) -> Self {
 	Value {
 	    raw: RawValue::Float(value),
+	}
+    }
+    pub fn get_float(&self) -> Result<f64, Box<dyn std::error::Error>> {
+	match &self.raw {
+	    RawValue::Float(f) => Ok(*f),
+	    _ => todo!("error"),
+	}
+    }
+    pub fn is_float(&self) -> bool {
+	match &self.raw {
+	    RawValue::Float(_) => true,
+	    _ => false,
 	}
     }
 
@@ -75,6 +110,19 @@ impl Value {
 	    raw: RawValue::List(value),
 	}
     }
+
+    pub fn new_nil() -> Self {
+	Value {
+	    raw: RawValue::Nil,
+	}
+    }
+    pub fn is_nil(&self) -> bool {
+	match &self.raw {
+	    RawValue::Nil => true,
+	    _ => false,
+	}
+    }
+    
 }
 
 #[derive(Clone)]
@@ -87,10 +135,42 @@ enum RawValue {
     Sexpr(Sexpr),
     Function(Function),
     List(Vec<Value>),
+    Nil,
 }
 
 #[derive(Clone)]
 pub enum Function {
-    Tree(Vec<String>, Sexpr, ContextFrame),
+    Tree(Vec<String>, Sexpr, ContextFrame, FunctionShape),
+    Native(fn(Vec<Value>, HashMap<String, Value>) -> Result<Value, Box<dyn std::error::Error>>, FunctionShape),
+}
 
+#[derive(Clone)]
+pub struct FunctionShape {
+    args: Vec<String>,
+}
+
+impl FunctionShape {
+    pub fn new(args: Vec<String>) -> Self {
+	FunctionShape {
+	    args,
+	}
+    }
+
+    pub fn check(&self, args: &Vec<Value>, keyword_args: &HashMap<String, Value>) -> Result<(), Box<dyn std::error::Error>> {
+	if self.args.len() != args.len() + keyword_args.len() {
+	    todo!("error");
+	}
+
+	for (i, arg) in self.args.iter().enumerate() {
+	    if i < args.len() {
+		continue;
+	    } else {
+		if !keyword_args.contains_key(arg) {
+		    todo!("error");
+		}
+	    }
+	}
+
+	Ok(())
+    }
 }

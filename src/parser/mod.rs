@@ -70,7 +70,30 @@ peg::parser!{
 	pub(crate) rule keyword() -> String
 	    = ":" s:symbol() { s }
 	pub(crate) rule string() -> String
-	    = "\"" s:$([^'"']+) "\"" { s.to_string() }
+	    = "\"" s:$(([^'"'] / "\\\"")+) "\"" {?
+		let mut buffer = String::new();
+		let mut in_escape = false;
+		for c in s.chars() {
+		    if in_escape {
+			match c {
+			    '\\' => buffer.push('\\'),
+			    'n' => buffer.push('\n'),
+			    'r' => buffer.push('\r'),
+			    't' => buffer.push('\t'),
+			    '"' => buffer.push('"'),
+			    _ => { return Err("Bad escape sequence"); },
+			}
+			in_escape = false;
+			continue;
+		    }
+		    if c == '\\' {
+			in_escape = true;
+		    } else {
+			buffer.push(c)
+		    }
+		}
+		Ok(buffer)
+	    }
 	pub(crate) rule integer() -> String
 	    = s:$(['-' | '+']?['0'..='9']+) { s.to_string() }
 	pub(crate) rule float() -> f64

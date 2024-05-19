@@ -1,6 +1,7 @@
 use std::collections::HashMap; 
 use crate::interpreter::value::Value;
 use crate::interpreter::module::Module;
+use crate::stdlib::get_stdlib;
 
 #[derive(Clone)]
 pub struct ContextFrame {
@@ -11,6 +12,11 @@ impl ContextFrame {
     pub fn new() -> Self {
 	ContextFrame {
 	    bindings: HashMap::new(),
+	}
+    }
+    pub fn new_with_bindings(bindings: HashMap<String, Value>) -> Self {
+	ContextFrame {
+	    bindings,
 	}
     }
 
@@ -29,7 +35,7 @@ impl Context {
     pub fn new() -> Self {
 	Context {
 	    modules: HashMap::new(),
-	    frames: vec![ContextFrame { bindings: HashMap::new() }],
+	    frames: vec![get_stdlib()],
 	}
     }
 

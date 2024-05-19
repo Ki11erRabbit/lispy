@@ -1,5 +1,6 @@
 pub mod parser;
 pub mod interpreter;
+pub mod stdlib;
 fn main() -> Result<(), Box<dyn std::error::Error>>{
     let args: Vec<String> = std::env::args().collect();
 

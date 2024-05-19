@@ -1,6 +1,6 @@
 use crate::parser::{File, Sexpr, Atom};
 use super::context::Context;
-use super::value::{Value, Function};
+use super::value::{Value, Function, FunctionShape};
 
 fn unbox<T>(value: Box<[T]>) -> Box<[T]> {
 	value
@@ -111,7 +111,7 @@ fn walk_through_define(list: &Vec<Sexpr>, context: &mut Context) -> Result<Optio
 		_ => todo!("error"),
 	    }).collect::<Vec<String>>();
 
-	    let function = Function::Tree(args, body.clone(), context.copy_frame());
+	    let function = Function::Tree(args.clone(), body.clone(), context.copy_frame(), FunctionShape::new(args));
 	    context.define(&name, Value::new_function(function));
 	    Ok(None)
 	},
@@ -127,7 +127,7 @@ fn walk_through_lambda(list: &Vec<Sexpr>, context: &mut Context) -> Result<Optio
 		_ => todo!("error"),
 	    }).collect::<Vec<String>>();
 
-	    let function = Function::Tree(args, body.clone(), context.copy_frame());
+	    let function = Function::Tree(args.clone(), body.clone(), context.copy_frame(), FunctionShape::new(args));
 	    Ok(Some(Value::new_function(function)))
 	},
 	_ => todo!("error"),
@@ -238,22 +238,90 @@ fn walk_through_call(list: &Vec<Sexpr>, context: &mut Context) -> Result<Option<
 	};
 
 	match function {
-	    Function::Tree(args, body, frame) => {
-		context.push_frame(Some(frame.clone()));
-		for (arg, value) in args.iter().zip(list.iter().skip(1)) {
-		    let value = walk_through(value, context)?;
-		    match value {
-			Some(value) => {
-			    context.define(arg, value);
+	    Function::Tree(fun_args, body, frame, shape) => {
+		let mut args = Vec::new();
+		let mut keyword_args = std::collections::HashMap::new();
+		let mut iterator = list.iter().skip(1);
+		while let Some(sexpr) = iterator.next() {
+		    match sexpr {
+			Sexpr::Atom(Atom::Keyword(k)) => {
+			    if let Some(value) = iterator.next() {
+				match walk_through(value, context)? {
+				    Some(value) => {
+					keyword_args.insert(k.clone(), value);
+				    }
+				    None => {
+					todo!("error");
+				    }
+				}
+			    } else {
+				todo!("error");
+			    }
 			}
-			None => {
-			    todo!("error");
+			s => {
+			    match walk_through(s, context)? {
+				Some(value) => {
+				    args.push(value);
+				}
+				None => {
+				    todo!("error");
+				}
+			    }
 			}
 		    }
 		}
+
+		shape.check(&args, &keyword_args)?;
+
+		context.push_frame(Some(frame.clone()));
+
+		for (arg, value) in fun_args.iter().zip(args.iter()) {
+		    context.define(arg, value.clone());
+		}
+		for (arg, value) in keyword_args.iter() {
+		    context.define(arg, value.clone());
+		}
+		
 		let value = walk_through(&body, context);
 		context.pop_frame();
 		value
+	    },
+	    Function::Native(f, shape) => {
+		let mut args = Vec::new();
+		let mut keyword_args = std::collections::HashMap::new();
+		let mut iterator = list.iter().skip(1);
+		while let Some(sexpr) = iterator.next() {
+		    match sexpr {
+			Sexpr::Atom(Atom::Keyword(k)) => {
+			    if let Some(value) = iterator.next() {
+				match walk_through(value, context)? {
+				    Some(value) => {
+					keyword_args.insert(k.clone(), value);
+				    }
+				    None => {
+					todo!("error");
+				    }
+				}
+			    } else {
+				todo!("error");
+			    }
+			}
+			s => {
+			    match walk_through(s, context)? {
+				Some(value) => {
+				    args.push(value);
+				}
+				None => {
+				    todo!("error");
+				}
+			    }
+			}
+		    }
+		}
+
+		shape.check(&args, &keyword_args)?;
+		
+		Ok(Some(f(args, keyword_args)?))
 	    }
 	}
     } else {
