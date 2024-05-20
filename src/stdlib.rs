@@ -495,15 +495,15 @@ fn stdlib_or_shape() -> FunctionShape {
 }
 
 fn stdlib_or(_: &mut Context, args: Vec<Value>, keyword_args: HashMap<String, Value>) -> Result<Value, Box<dyn std::error::Error>> {
-	if args.len() == 2 {
+    if args.len() == 2 {
 	if args[0].is_boolean() && args[1].is_boolean() {
 	    let x = args[0].get_boolean()?;
 	    let y = args[1].get_boolean()?;
 	    return Ok(Value::new_boolean(x || y));
 	} else {
-	    todo!("error");
+	    return Err(Box::new(Exception::new(vec!["or".to_string()], "arguments must be booleans".to_string())));
 	}
-	} else if args.len() == 1 {
+    } else if args.len() == 1 {
 	if args[0].is_boolean() {
 	    let x = args[0].get_boolean()?;
 	    match keyword_args.get("y") {
@@ -511,27 +511,26 @@ fn stdlib_or(_: &mut Context, args: Vec<Value>, keyword_args: HashMap<String, Va
 		    if value.is_boolean() { 
 			return Ok(Value::new_boolean(x || value.get_boolean()?));
 		    } else {
-			todo!("error");
+			return Err(Box::new(Exception::new(vec!["or".to_string()], "arguments must be booleans".to_string())));
 		    }
 		}
 		None => {
-		    todo!("error");
+		    return Err(Box::new(Exception::new(vec!["or".to_string()], "missing argument y".to_string())));
 		}
 	    }
 	} else {
-	    let x = keyword_args.get("x").unwrap();
-	    let y = keyword_args.get("y").unwrap();
+	    let x = keyword_args.get("x").ok_or(Box::new(Exception::new(vec!["or".to_string()], "missing argument x".to_string())))?;
+	    let y = keyword_args.get("y").ok_or(Box::new(Exception::new(vec!["or".to_string()], "missing argument y".to_string())))?;
 	    if x.is_boolean() && y.is_boolean() {
 		let x = x.get_boolean()?;
 		let y = y.get_boolean()?;
 		return Ok(Value::new_boolean(x || y));
 	    } else {
-		todo!("error");
+		return Err(Box::new(Exception::new(vec!["or".to_string()], "arguments must be booleans".to_string())));
 	    }
 	}
-
-	}
-	todo!("error");
+    }
+    return Err(Box::new(Exception::new(vec!["or".to_string()], "wrong number of arguments".to_string())));
 }
 
 fn stdlib_and_shape() -> FunctionShape {
@@ -539,15 +538,15 @@ fn stdlib_and_shape() -> FunctionShape {
 }
 
 fn stdlib_and(_: &mut Context, args: Vec<Value>, keyword_args: HashMap<String, Value>) -> Result<Value, Box<dyn std::error::Error>> {
-	if args.len() == 2 {
+    if args.len() == 2 {
 	if args[0].is_boolean() && args[1].is_boolean() {
 	    let x = args[0].get_boolean()?;
 	    let y = args[1].get_boolean()?;
 	    return Ok(Value::new_boolean(x && y));
 	} else {
-	    todo!("error");
+	    return Err(Box::new(Exception::new(vec!["and".to_string()], "arguments must be booleans".to_string())));
 	}
-	} else if args.len() == 1 {
+    } else if args.len() == 1 {
 	if args[0].is_boolean() {
 	    let x = args[0].get_boolean()?;
 	    match keyword_args.get("y") {
@@ -555,27 +554,27 @@ fn stdlib_and(_: &mut Context, args: Vec<Value>, keyword_args: HashMap<String, V
 		    if value.is_boolean() { 
 			return Ok(Value::new_boolean(x && value.get_boolean()?));
 		    } else {
-			todo!("error");
+			return Err(Box::new(Exception::new(vec!["and".to_string()], "arguments must be booleans".to_string())));
 		    }
 		}
 		None => {
-		    todo!("error");
+		    return Err(Box::new(Exception::new(vec!["and".to_string()], "missing argument y".to_string())));
 		}
 	    }
 	} else {
-	    let x = keyword_args.get("x").unwrap();
-	    let y = keyword_args.get("y").unwrap();
+	    let x = keyword_args.get("x").ok_or(Box::new(Exception::new(vec!["and".to_string()], "missing argument x".to_string())))?;
+	    let y = keyword_args.get("y").ok_or(Box::new(Exception::new(vec!["and".to_string()], "missing argument y".to_string())))?;
 	    if x.is_boolean() && y.is_boolean() {
 		let x = x.get_boolean()?;
 		let y = y.get_boolean()?;
 		return Ok(Value::new_boolean(x && y));
 	    } else {
-		todo!("error");
+		return Err(Box::new(Exception::new(vec!["and".to_string()], "arguments must be booleans".to_string())));
 	    }
 	}
 
-	}
-	todo!("error");
+    }
+    todo!("error");
 }
 
 fn stdlib_not_shape() -> FunctionShape {
@@ -583,22 +582,72 @@ fn stdlib_not_shape() -> FunctionShape {
 }
 
 fn stdlib_not(_: &mut Context, args: Vec<Value>, keyword_args: HashMap<String, Value>) -> Result<Value, Box<dyn std::error::Error>> {
-	if args.len() == 1 {
+    if args.len() == 1 {
 	if args[0].is_boolean() {
 	    let x = args[0].get_boolean()?;
 	    return Ok(Value::new_boolean(!x));
 	} else {
+	    return Err(Box::new(Exception::new(vec!["not".to_string()], "argument must be a boolean".to_string())));
+	}
+    } else {
+	let x = keyword_args.get("x").ok_or(Box::new(Exception::new(vec!["not".to_string()], "missing argument x".to_string())))?;
+	if x.is_boolean() {
+	    let x = x.get_boolean()?;
+	    return Ok(Value::new_boolean(!x));
+	} else {
 	    todo!("error");
 	}
+    }
+}
+
+fn stdlib_car_shape() -> FunctionShape {
+	FunctionShape::new(vec!["list".to_string()])
+}
+
+fn stdlib_car(_: &mut Context, args: Vec<Value>, keyword_args: HashMap<String, Value>) -> Result<Value, Box<dyn std::error::Error>> {
+    if args.len() == 1 {
+	if args[0].is_pair() {
+	    let pair = args[0].get_pair()?;
+	    let (car, _) = pair;
+	    return Ok(car.clone());
 	} else {
-	    let x = keyword_args.get("x").unwrap();
-	    if x.is_boolean() {
-		let x = x.get_boolean()?;
-		return Ok(Value::new_boolean(!x));
-	    } else {
-		todo!("error");
-	    }
+	    return Err(Box::new(Exception::new(vec!["car".to_string()], "argument must be a list".to_string())));
 	}
+    } else {
+	let x = keyword_args.get("list").unwrap();
+	if x.is_pair() {
+	    let list = x.get_pair()?;
+	    let (car, _) = list;
+	    return Ok(car.clone());
+	} else {
+	    return Err(Box::new(Exception::new(vec!["car".to_string()], "argument must be a list".to_string())));
+	}
+    }
+}
+
+fn stdlib_cdr_shape() -> FunctionShape {
+	FunctionShape::new(vec!["list".to_string()])
+}
+
+fn stdlib_cdr(_: &mut Context, args: Vec<Value>, keyword_args: HashMap<String, Value>) -> Result<Value, Box<dyn std::error::Error>> {
+    if args.len() == 1 {
+	if args[0].is_pair() {
+	    let pair = args[0].get_pair()?;
+	    let (_, cdr) = pair;
+	    return Ok(cdr.clone());
+	} else {
+	    return Err(Box::new(Exception::new(vec!["cdr".to_string()], "argument must be a list".to_string())));
+	}
+    } else {
+	let x = keyword_args.get("list").unwrap();
+	if x.is_pair() {
+	    let list = x.get_pair()?;
+	    let (_, cdr) = list;
+	    return Ok(cdr.clone());
+	} else {
+	    return Err(Box::new(Exception::new(vec!["cdr".to_string()], "argument must be a list".to_string())));
+	}
+    }
 }
 
 fn stdlib_sleep_shape() -> FunctionShape {
@@ -612,7 +661,7 @@ fn stdlib_sleep(_: &mut Context, args: Vec<Value>, keyword_args: HashMap<String,
 	std::thread::sleep(std::time::Duration::from_secs(x.to_u64().unwrap()));
 	return Ok(Value::new_nil());
     } else {
-	todo!("error");
+	return Err(Box::new(Exception::new(vec!["sleep".to_string()], "argument must be an integer".to_string())));
     }
     } else {
 	let x = keyword_args.get("seconds").unwrap();
@@ -621,7 +670,30 @@ fn stdlib_sleep(_: &mut Context, args: Vec<Value>, keyword_args: HashMap<String,
 	    std::thread::sleep(std::time::Duration::from_secs(x.to_u64().unwrap()));
 	    return Ok(Value::new_nil());
 	} else {
-	    todo!("error");
+	    return Err(Box::new(Exception::new(vec!["sleep".to_string()], "argument must be an integer".to_string())));
+	}
+    }
+}
+
+fn stdlib_exit_shape() -> FunctionShape {
+	FunctionShape::new(vec!["code".to_string()])
+}
+
+fn stdlib_exit(_: &mut Context, args: Vec<Value>, keyword_args: HashMap<String, Value>) -> Result<Value, Box<dyn std::error::Error>> {
+    if args.len() == 1 {
+	if args[0].is_integer() {
+	    let x = args[0].get_integer()?;
+	    std::process::exit(x.to_i32().unwrap());
+	} else {
+	    return Err(Box::new(Exception::new(vec!["exit".to_string()], "argument must be an integer".to_string())));
+	}
+    } else {
+    let x = keyword_args.get("code").unwrap();
+	if x.is_integer() {
+	    let x = x.get_integer()?;
+	    std::process::exit(x.to_i32().unwrap());
+	} else {
+	    return Err(Box::new(Exception::new(vec!["exit".to_string()], "argument must be an integer".to_string())));
 	}
     }
 }
@@ -643,5 +715,8 @@ pub fn get_stdlib(context: &mut Context) -> ContextFrame {
     bindings.insert("and".to_string(), Value::new_function(Function::Native(stdlib_and, stdlib_and_shape()), context));
     bindings.insert("not".to_string(), Value::new_function(Function::Native(stdlib_not, stdlib_not_shape()), context));
     bindings.insert("sleep".to_string(), Value::new_function(Function::Native(stdlib_sleep, stdlib_sleep_shape()), context));
+    bindings.insert("exit".to_string(), Value::new_function(Function::Native(stdlib_exit, stdlib_exit_shape()), context));
+    bindings.insert("car".to_string(), Value::new_function(Function::Native(stdlib_car, stdlib_car_shape()), context));
+    bindings.insert("cdr".to_string(), Value::new_function(Function::Native(stdlib_cdr, stdlib_cdr_shape()), context));
     ContextFrame::new_with_bindings(bindings)
 }

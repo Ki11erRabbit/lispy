@@ -157,6 +157,28 @@ impl Value {
 	    raw: RawValue::Gc(gc_object),
 	}
     }
+    pub fn get_pair(&self) -> Result<(&Value, &Value), Box<dyn std::error::Error>> {
+	match self.raw {
+	    RawValue::Gc(ref gc) => {
+		match gc.get() {
+		    GcValue::Pair((ref car, ref cdr)) => Ok((car, cdr)),
+		    _ => Err(Box::new(Exception::new(Vec::new(), "not a pair".to_string()))),
+		}
+	    },
+	    _ => Err(Box::new(Exception::new(Vec::new(), "not a pair".to_string()))),
+	}
+    }
+    pub fn is_pair(&self) -> bool {
+	match self.raw {
+	    RawValue::Gc(ref gc) => {
+		match gc.get() {
+		    GcValue::Pair(_) => true,
+		    _ => false,
+		}
+	    },
+	    _ => false,
+	}
+    }
 
     pub fn new_nil() -> Self {
 	Value {
