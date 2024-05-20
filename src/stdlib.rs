@@ -650,6 +650,19 @@ fn stdlib_cdr(_: &mut Context, args: Vec<Value>, keyword_args: HashMap<String, V
     }
 }
 
+fn stdlib_is_integer_shape() -> FunctionShape {
+	FunctionShape::new(vec!["x".to_string()])
+}
+
+fn stdlib_is_integer(_: &mut Context, args: Vec<Value>, keyword_args: HashMap<String, Value>) -> Result<Value, Box<dyn std::error::Error>> {
+    if args.len() == 1 {
+	return Ok(Value::new_boolean(args[0].is_integer()));
+    } else {
+	let x = keyword_args.get("x").unwrap();
+	return Ok(Value::new_boolean(x.is_integer()));
+    }
+}
+
 fn stdlib_sleep_shape() -> FunctionShape {
     FunctionShape::new(vec!["seconds".to_string()])
 }
