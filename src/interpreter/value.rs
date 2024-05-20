@@ -17,7 +17,7 @@ pub struct Value {
 
 impl Value {
     pub fn new_string(value: &str, context: &mut Context) -> Self {
-	let gc_object = Gc::new(GcValue::String(value.to_string()), context);
+	let gc_object = Gc::new(GcValue::String(value.to_string()));
 	context.send_gc(gc_object.clone());
 	let raw = RawValue::Gc(gc_object);
 	Value {
@@ -113,7 +113,7 @@ impl Value {
     }
 
     pub fn new_sexpr(value: Sexpr, context: &mut Context) -> Self {
-	let gc_object = Gc::new(GcValue::Sexpr(value), context);
+	let gc_object = Gc::new(GcValue::Sexpr(value));
 	context.send_gc(gc_object.clone());
 	Value {
 	    raw: RawValue::Gc(gc_object),
@@ -121,7 +121,7 @@ impl Value {
     }
 
     pub fn new_function(value: Function, context: &mut Context) -> Self {
-	let gc_object = Gc::new(GcValue::Function(value), context);
+	let gc_object = Gc::new(GcValue::Function(value));
 	context.send_gc(gc_object.clone());
 	
 	Value {
@@ -141,10 +141,18 @@ impl Value {
 	}
     }
 
-    pub fn new_list(value: Vec<Value>, context: &mut Context) -> Self {
-	let gc_object = Gc::new(GcValue::List(value), context);
+    pub fn new_vector(value: Vec<Value>, context: &mut Context) -> Self {
+	let gc_object = Gc::new(GcValue::Vector(value));
 	context.send_gc(gc_object.clone());
 	
+	Value {
+	    raw: RawValue::Gc(gc_object),
+	}
+    }
+
+    pub fn new_pair(car: Value, cdr: Value, context: &mut Context) -> Self {
+	let gc_object = Gc::new(GcValue::Pair((Box::new(car), Box::new(cdr))));
+	context.send_gc(gc_object.clone());
 	Value {
 	    raw: RawValue::Gc(gc_object),
 	}
@@ -167,7 +175,7 @@ impl Value {
 	    RawValue::Gc(ref mut gc) => {
 		gc.mark();
 		match gc.get_mut() {
-		    GcValue::List(ref mut list) => {
+		    GcValue::Vector(ref mut list) => {
 			for v in list {
 			    v.mark();
 			}
@@ -179,6 +187,10 @@ impl Value {
 			    }
 			    Function::Native(_, _) => {},
 			}
+		    },
+		    GcValue::Pair((ref mut car, ref mut cdr)) => {
+			car.mark();
+			cdr.mark();
 		    },
 		    _ => {},
 		}
@@ -193,7 +205,7 @@ impl Value {
 	    RawValue::Gc(ref mut gc) => {
 		gc.unmark();
 		match gc.get_mut() {
-		    GcValue::List(ref mut list) => {
+		    GcValue::Vector(ref mut list) => {
 			for v in list {
 			    v.unmark();
 			}
@@ -205,6 +217,10 @@ impl Value {
 			    }
 			    Function::Native(_, _) => {},
 			}
+		    },
+		    GcValue::Pair((ref mut car, ref mut cdr)) => {
+			car.unmark();
+			cdr.unmark();
 		    },
 		    _ => {},
 		}
@@ -229,7 +245,8 @@ pub enum GcValue {
     String(String),
     Sexpr(Sexpr),
     Function(Function),
-    List(Vec<Value>),
+    Pair((Box<Value>, Box<Value>)),
+    Vector(Vec<Value>),
 }
 
 #[derive(Clone)]

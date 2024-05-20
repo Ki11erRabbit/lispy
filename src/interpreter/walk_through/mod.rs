@@ -3,14 +3,10 @@ use super::Exception;
 use super::context::Context;
 use super::value::{Value, Function, FunctionShape};
 
-fn unbox<T>(value: Box<[T]>) -> Box<[T]> {
-	value
-}
-
 pub fn run(file: File, context: &mut Context) -> Result<(), Box<dyn std::error::Error>> {
 
     for sexpr in file {
-	let value = walk_through(&sexpr, context)?;
+	walk_through(&sexpr, context)?;
 	//println!("{:?}", value);
 	if crate::gc::is_gc_on() {
 	    println!("gc");
@@ -62,8 +58,26 @@ fn walk_through(sexpr: &Sexpr, context: &mut Context) -> Result<Option<Value>, B
 		    }
 		}
 	    }
-	    Ok(Some(Value::new_list(output, context)))
+	    let mut pair = Value::new_pair(output.pop().unwrap(), Value::new_nil(), context);
+	    for value in output.iter().rev() {
+		pair = Value::new_pair(value.clone(), pair, context);
+	    }
+	    Ok(Some(pair))
 	},
+	Sexpr::VectorList(list) => {
+	    let mut output = Vec::new();
+	    for sexpr in list {
+		match walk_through(sexpr, context)? {
+		    Some(value) => {
+			output.push(value);
+		    }
+		    None => {
+			return Err(Box::new(Exception::new(Vec::new(), "expression didn't result in a value".to_string())));
+		    }
+		}
+	    }
+	    Ok(Some(Value::new_vector(output, context)))
+	}
 	Sexpr::List(list) => {
 	    walk_through_list(list, context)
 	}
