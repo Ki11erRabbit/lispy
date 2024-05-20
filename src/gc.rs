@@ -115,7 +115,6 @@ impl<T: ?Sized> Drop for Gc<T> {
 	    let ptr = self.ptr.as_ref();
 	    ptr.count.fetch_sub(1, std::sync::atomic::Ordering::Relaxed);
 	    if ptr.count.load(std::sync::atomic::Ordering::Relaxed) == 0 {
-		println!("dropping");
 		drop(Box::from_raw(self.ptr.as_ptr()));
 	    }
 	}
@@ -147,7 +146,6 @@ impl GcTable {
 	    match value.marked() {
 		Mark::White => {
 		    remove_indices.push(i);
-		    println!("removing {}", i);
 		},
 		_ => {},
 	    }

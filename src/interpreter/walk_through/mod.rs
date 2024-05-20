@@ -41,8 +41,14 @@ fn walk_through(sexpr: &Sexpr, context: &mut Context) -> Result<Option<Value>, B
 			None => Err(Box::new(Exception::new(s.clone(), "not bound".to_string()))),
 		    }
 		}
-		Atom::Keyword(k) => {
+		Atom::Keyword(_) => {
 		    Err(Box::new(Exception::new(Vec::new(), "keyword not allowed here".to_string())))
+		}
+		Atom::Char(c) => {
+		    Ok(Some(Value::new_char(*c)))
+		}
+		Atom::Null => {
+		    Ok(Some(Value::new_nil()))
 		}
 	    }
 	},

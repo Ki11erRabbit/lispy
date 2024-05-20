@@ -37,6 +37,8 @@ pub enum Atom {
     Boolean(bool),
     Symbol(Vec<String>),
     Keyword(String),
+    Char(char),
+    Null,
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -102,8 +104,16 @@ peg::parser!{
 	pub(crate) rule boolean() -> bool
 	    = "#t" { true }
 	    / "#f" { false }
+	pub(crate) rule character() -> char
+	    = "#\\space" { ' ' }
+	/ "#\\newline" { '\n' }
+	/ "#\\tab" { '\t' }
+	/ "#\\return" { '\r' }
+	/ "#\\null" { '\0' }
+	/ "#\\" c:$([^' ' | '\n' | '\r' | '\0']) { c.chars().nth(0).unwrap() }
 	pub(crate) rule atom() -> Atom
 	    = f:(float()) { Atom::Float(f) }
+	/ c:(character()) { Atom::Char(c) }
 		 / s:(string()) { Atom::String(s) }
 		 / i:(integer()) { Atom::Integer(i) }
 	         / k:(keyword()) { Atom::Keyword(k) }
