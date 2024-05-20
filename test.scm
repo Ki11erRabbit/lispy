@@ -27,5 +27,6 @@
     (sleep 5)
     (g)))
 
-(g)
-
+(if (boolean? #t)
+    (display "true\n")
+    (display "false\n"))

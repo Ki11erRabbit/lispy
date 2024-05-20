@@ -106,9 +106,22 @@ impl Value {
 	}
     }
 
-    pub fn new_symbol(value: Vec<String>) -> Self {
+    pub fn new_symbol(value: Vec<String>, context: &mut Context) -> Self {
+	let gc_object = Gc::new(GcValue::Symbol(value));
+	context.send_gc(gc_object.clone());
 	Value {
-	    raw: RawValue::Symbol(value),
+	    raw: RawValue::Gc(gc_object),
+	}
+    }
+    pub fn is_symbol(&self) -> bool {
+	match self.raw {
+	    RawValue::Gc(ref gc) => {
+		match gc.get() {
+		    GcValue::Symbol(_) => true,
+		    _ => false,
+		}
+	    },
+	    _ => false,
 	}
     }
 
@@ -128,7 +141,6 @@ impl Value {
 	    raw: RawValue::Gc(gc_object),
 	}
     }
-
     pub fn get_function(&self) -> Result<&Function, Box<dyn std::error::Error>> {
 	match self.raw {
 	    RawValue::Gc(ref gc) => {
@@ -140,6 +152,17 @@ impl Value {
 	    _ => Err(Box::new(Exception::new(Vec::new(), "not a function".to_string()))),
 	}
     }
+    pub fn is_function(&self) -> bool {
+	match self.raw {
+	    RawValue::Gc(ref gc) => {
+		match gc.get() {
+		    GcValue::Function(_) => true,
+		    _ => false,
+		}
+	    }
+	    _ => false,
+	}
+    }
 
     pub fn new_vector(value: Vec<Value>, context: &mut Context) -> Self {
 	let gc_object = Gc::new(GcValue::Vector(value));
@@ -147,6 +170,28 @@ impl Value {
 	
 	Value {
 	    raw: RawValue::Gc(gc_object),
+	}
+    }
+    pub fn get_vector(&self) -> Result<&Vec<Value>, Box<dyn std::error::Error>> {
+	match self.raw {
+	    RawValue::Gc(ref gc) => {
+		match gc.get() {
+		    GcValue::Vector(ref v) => Ok(v),
+		    _ => Err(Box::new(Exception::new(Vec::new(), "not a vector".to_string()))),
+		}
+	    }
+	    _ => Err(Box::new(Exception::new(Vec::new(), "not a vector".to_string()))),
+	}
+    }
+    pub fn is_vector(&self) -> bool {
+	match self.raw {
+	    RawValue::Gc(ref gc) => {
+		match gc.get() {
+		    GcValue::Vector(_) => true,
+		    _ => false,
+		}
+	    }
+	    _ => false,
 	}
     }
 
@@ -176,6 +221,23 @@ impl Value {
 		    _ => false,
 		}
 	    },
+	    _ => false,
+	}
+    }
+    pub fn new_char(c: char) -> Self {
+	Value {
+	    raw: RawValue::Char(c),
+	}
+    }
+    pub fn get_char(&self) -> Result<char, Box<dyn std::error::Error>> {
+	match self.raw {
+	    RawValue::Char(c) => Ok(c),
+	    _ => Err(Box::new(Exception::new(Vec::new(), "not a char".to_string()))),
+	}
+    }
+    pub fn is_char(&self) -> bool {
+	match self.raw {
+	    RawValue::Char(_) => true,
 	    _ => false,
 	}
     }
@@ -259,8 +321,8 @@ enum RawValue {
     Integer(Integer),
     Float(f64),
     Boolean(bool),
-    Symbol(Vec<String>),
     Nil,
+    Char(char),
 }
 
 pub enum GcValue {
@@ -269,6 +331,7 @@ pub enum GcValue {
     Function(Function),
     Pair((Box<Value>, Box<Value>)),
     Vector(Vec<Value>),
+    Symbol(Vec<String>),
 }
 
 #[derive(Clone)]

@@ -316,6 +316,118 @@ fn stdlib_div(_: &mut Context, args: Vec<Value>, keyword_args: HashMap<String, V
 	    if part2.is_zero() {
 		return Err(Box::new(Exception::new(vec!["/".to_string()], "division by zero".to_string())));
 	    }
+	    part1.to_f64() / part2.to_f64()
+	} else if args.len() == 2 {
+	    let part1 = args[0].get_integer()?;
+	    let part2 = args[1].get_integer()?;
+	    if part2.is_zero() {
+		return Err(Box::new(Exception::new(vec!["/".to_string()], "division by zero".to_string())));
+	    }
+	    part1.to_f64() / part2.to_f64()
+	} else {
+	    let part1 = match keyword_args.get("x") {
+		Some(value) => {
+		    value.get_integer()?
+		}
+		None => unreachable!(),
+	    };
+	    let part2 = match keyword_args.get("y") {
+		Some(value) => {
+		    value.get_integer()?
+		}
+		None => unreachable!(),
+	    };
+	    if part2.is_zero() {
+		return Err(Box::new(Exception::new(vec!["/".to_string()], "division by zero".to_string())));
+	    }
+	    part1.to_f64() / part2.to_f64()
+	};
+	Ok(Value::new_float(difference))
+    }
+}
+
+fn stdlib_floor_div_shape() -> FunctionShape {
+    FunctionShape::new(vec!["x".to_string(), "y".to_string()])
+} 
+
+fn stdlib_floor_div(_: &mut Context, args: Vec<Value>, keyword_args: HashMap<String, Value>) -> Result<Value, Box<dyn std::error::Error>> {
+    let float_exists = check_for_floats(&args, &keyword_args);
+
+    if float_exists {
+	let difference = if args.len() == 1 {
+	    let part1 = if args[0].is_float() {
+		args[0].get_float()?
+	    } else {
+		args[0].get_integer()?.to_f64()
+	    }; 
+	    let part2 = match keyword_args.get("y") {
+		Some(value) => {
+		    if value.is_float() {
+			value.get_float()?
+		    } else {
+			value.get_integer()?.to_f64()
+		    }
+		}
+		None => unreachable!(),
+	    };
+	    if part2 == 0.0 {
+		return Err(Box::new(Exception::new(vec!["/".to_string()], "division by zero".to_string())));
+	    }
+	    part1 / part2
+	} else if args.len() == 2 {
+	    let part1 = if args[0].is_float() {
+		args[0].get_float()?
+	    } else {
+		args[0].get_integer()?.to_f64()
+	    };
+	    let part2 = if args[1].is_float() {
+		args[1].get_float()?
+	    } else {
+		args[1].get_integer()?.to_f64()
+	    };
+	    if part2 == 0.0 {
+		return Err(Box::new(Exception::new(vec!["/".to_string()], "division by zero".to_string())));
+	    }
+	    part1 / part2
+	} else {
+	    let part1 = match keyword_args.get("x") {
+		Some(value) => {
+		    if value.is_float() {
+			value.get_float()?
+		    } else {
+			value.get_integer()?.to_f64()
+		    }
+		}
+		None => unreachable!(),
+	    };
+	    let part2 = match keyword_args.get("y") {
+		Some(value) => {
+		    if value.is_float() {
+			value.get_float()?
+		    } else {
+			value.get_integer()?.to_f64()
+		    }
+		}
+		None => unreachable!(),
+	    };
+	    if part2 == 0.0 {
+		return Err(Box::new(Exception::new(vec!["/".to_string()], "division by zero".to_string())));
+	    }
+	    part1 / part2
+	};
+	Ok(Value::new_float(difference))
+    } else {
+	let difference = if args.len() == 1 {
+	    let part1 = args[0].get_integer()?;
+	    let part2 = match keyword_args.get("y") {
+		Some(value) => {
+		    value.get_integer()?
+		}
+		None => unreachable!(),
+	    };
+	    if part2.is_zero() {
+		return Err(Box::new(Exception::new(vec!["/".to_string()], "division by zero".to_string())));
+	    }
 	    part1 / part2
 	} else if args.len() == 2 {
 	    let part1 = args[0].get_integer()?;
@@ -345,6 +457,7 @@ fn stdlib_div(_: &mut Context, args: Vec<Value>, keyword_args: HashMap<String, V
 	Ok(Value::new_integer_from_integer(Integer::from(difference)))
     }
 }
+
 
 macro_rules! numeric_equality_check {
     ($name:ident, $op:tt, $str:expr) => {
@@ -574,7 +687,7 @@ fn stdlib_and(_: &mut Context, args: Vec<Value>, keyword_args: HashMap<String, V
 	}
 
     }
-    todo!("error");
+    return Err(Box::new(Exception::new(vec!["and".to_string()], "wrong number of arguments".to_string())));
 }
 
 fn stdlib_not_shape() -> FunctionShape {
@@ -614,7 +727,7 @@ fn stdlib_car(_: &mut Context, args: Vec<Value>, keyword_args: HashMap<String, V
 	    return Err(Box::new(Exception::new(vec!["car".to_string()], "argument must be a list".to_string())));
 	}
     } else {
-	let x = keyword_args.get("list").unwrap();
+	let x = keyword_args.get("list").ok_or(Box::new(Exception::new(vec!["car".to_string()], "list not bound".to_string())))?;
 	if x.is_pair() {
 	    let list = x.get_pair()?;
 	    let (car, _) = list;
@@ -651,17 +764,123 @@ fn stdlib_cdr(_: &mut Context, args: Vec<Value>, keyword_args: HashMap<String, V
 }
 
 fn stdlib_is_integer_shape() -> FunctionShape {
-	FunctionShape::new(vec!["x".to_string()])
+    FunctionShape::new(vec!["x".to_string()])
 }
 
 fn stdlib_is_integer(_: &mut Context, args: Vec<Value>, keyword_args: HashMap<String, Value>) -> Result<Value, Box<dyn std::error::Error>> {
     if args.len() == 1 {
 	return Ok(Value::new_boolean(args[0].is_integer()));
     } else {
-	let x = keyword_args.get("x").unwrap();
+	let x = keyword_args.get("x").ok_or(Box::new(Exception::new(vec!["integer?".to_string()], "expected x to be bound".to_string())))?;
 	return Ok(Value::new_boolean(x.is_integer()));
     }
 }
+
+fn stdlib_is_float_shape() -> FunctionShape {
+    FunctionShape::new(vec!["x".to_string()])
+}
+
+fn stdlib_is_float(_: &mut Context, args: Vec<Value>, keyword_args: HashMap<String, Value>) -> Result<Value, Box<dyn std::error::Error>> {
+    if args.len() == 1 {
+	return Ok(Value::new_boolean(args[0].is_float()));
+    } else {
+	let x = keyword_args.get("x").ok_or(Box::new(Exception::new(vec!["float?".to_string()], "expected x to be bound".to_string())))?;
+	return Ok(Value::new_boolean(x.is_integer()));
+    }
+}
+
+fn stdlib_is_boolean_shape() -> FunctionShape {
+    FunctionShape::new(vec!["x".to_string()])
+}
+
+fn stdlib_is_boolean(_: &mut Context, args: Vec<Value>, keyword_args: HashMap<String, Value>) -> Result<Value, Box<dyn std::error::Error>> {
+    if args.len() == 1 {
+	return Ok(Value::new_boolean(args[0].is_boolean()));
+    } else {
+	let x = keyword_args.get("x").ok_or(Box::new(Exception::new(vec!["bool?".to_string()], "expected x to be bound".to_string())))?;
+	return Ok(Value::new_boolean(x.is_boolean()));
+    }
+}
+
+fn stdlib_is_symbol_shape() -> FunctionShape {
+    FunctionShape::new(vec!["x".to_string()])
+}
+
+fn stdlib_is_symbol(_: &mut Context, args: Vec<Value>, keyword_args: HashMap<String, Value>) -> Result<Value, Box<dyn std::error::Error>> {
+    if args.len() == 1 {
+	return Ok(Value::new_boolean(args[0].is_symbol()));
+    } else {
+	let x = keyword_args.get("x").ok_or(Box::new(Exception::new(vec!["symbol?".to_string()], "expected x to be bound".to_string())))?;
+	return Ok(Value::new_boolean(x.is_symbol()));
+    }
+}
+
+fn stdlib_is_null_shape() -> FunctionShape {
+    FunctionShape::new(vec!["x".to_string()])
+}
+
+fn stdlib_is_null(_: &mut Context, args: Vec<Value>, keyword_args: HashMap<String, Value>) -> Result<Value, Box<dyn std::error::Error>> {
+    if args.len() == 1 {
+	return Ok(Value::new_boolean(args[0].is_nil()));
+    } else {
+	let x = keyword_args.get("x").ok_or(Box::new(Exception::new(vec!["null?".to_string()], "expected x to be bound".to_string())))?;
+	return Ok(Value::new_boolean(x.is_nil()));
+    }
+}
+
+fn stdlib_is_string_shape() -> FunctionShape {
+    FunctionShape::new(vec!["x".to_string()])
+}
+
+fn stdlib_is_string(_: &mut Context, args: Vec<Value>, keyword_args: HashMap<String, Value>) -> Result<Value, Box<dyn std::error::Error>> {
+    if args.len() == 1 {
+	return Ok(Value::new_boolean(args[0].is_string()));
+    } else {
+	let x = keyword_args.get("x").ok_or(Box::new(Exception::new(vec!["string?".to_string()], "expected x to be bound".to_string())))?;
+	return Ok(Value::new_boolean(x.is_string()));
+    }
+}
+
+fn stdlib_is_procedure_shape() -> FunctionShape {
+    FunctionShape::new(vec!["x".to_string()])
+}
+
+fn stdlib_is_procedure(_: &mut Context, args: Vec<Value>, keyword_args: HashMap<String, Value>) -> Result<Value, Box<dyn std::error::Error>> {
+    if args.len() == 1 {
+	return Ok(Value::new_boolean(args[0].is_function()));
+    } else {
+	let x = keyword_args.get("x").ok_or(Box::new(Exception::new(vec!["procedure?".to_string()], "expected x to be bound".to_string())))?;
+	return Ok(Value::new_boolean(x.is_function()));
+    }
+}
+
+fn stdlib_is_pair_shape() -> FunctionShape {
+    FunctionShape::new(vec!["x".to_string()])
+}
+
+fn stdlib_is_pair(_: &mut Context, args: Vec<Value>, keyword_args: HashMap<String, Value>) -> Result<Value, Box<dyn std::error::Error>> {
+    if args.len() == 1 {
+	return Ok(Value::new_boolean(args[0].is_pair()));
+    } else {
+	let x = keyword_args.get("x").ok_or(Box::new(Exception::new(vec!["pair?".to_string()], "expected x to be bound".to_string())))?;
+	return Ok(Value::new_boolean(x.is_pair()));
+    }
+}
+
+fn stdlib_is_vector_shape() -> FunctionShape {
+    FunctionShape::new(vec!["x".to_string()])
+}
+
+fn stdlib_is_vector(_: &mut Context, args: Vec<Value>, keyword_args: HashMap<String, Value>) -> Result<Value, Box<dyn std::error::Error>> {
+    if args.len() == 1 {
+	return Ok(Value::new_boolean(args[0].is_vector()));
+    } else {
+	let x = keyword_args.get("x").ok_or(Box::new(Exception::new(vec!["vector?".to_string()], "expected x to be bound".to_string())))?;
+	return Ok(Value::new_boolean(x.is_vector()));
+    }
+}
+
+
 
 fn stdlib_sleep_shape() -> FunctionShape {
     FunctionShape::new(vec!["seconds".to_string()])
@@ -731,5 +950,16 @@ pub fn get_stdlib(context: &mut Context) -> ContextFrame {
     bindings.insert("exit".to_string(), Value::new_function(Function::Native(stdlib_exit, stdlib_exit_shape()), context));
     bindings.insert("car".to_string(), Value::new_function(Function::Native(stdlib_car, stdlib_car_shape()), context));
     bindings.insert("cdr".to_string(), Value::new_function(Function::Native(stdlib_cdr, stdlib_cdr_shape()), context));
+    bindings.insert("integer?".to_string(), Value::new_function(Function::Native(stdlib_is_integer, stdlib_is_integer_shape()), context));
+    bindings.insert("float?".to_string(), Value::new_function(Function::Native(stdlib_is_float, stdlib_is_float_shape()), context));
+    bindings.insert("boolean?".to_string(), Value::new_function(Function::Native(stdlib_is_boolean, stdlib_is_boolean_shape()), context));
+    bindings.insert("symbol?".to_string(), Value::new_function(Function::Native(stdlib_is_symbol, stdlib_is_symbol_shape()), context));
+    bindings.insert("integer?".to_string(), Value::new_function(Function::Native(stdlib_is_integer, stdlib_is_integer_shape()), context));
+    bindings.insert("string?".to_string(), Value::new_function(Function::Native(stdlib_is_string, stdlib_is_string_shape()), context));
+    bindings.insert("procedure?".to_string(), Value::new_function(Function::Native(stdlib_is_procedure, stdlib_is_procedure_shape()), context));
+    bindings.insert("pair?".to_string(), Value::new_function(Function::Native(stdlib_is_pair, stdlib_is_pair_shape()), context));
+    bindings.insert("vector?".to_string(), Value::new_function(Function::Native(stdlib_is_vector, stdlib_is_vector_shape()), context));
+    bindings.insert("null?".to_string(), Value::new_function(Function::Native(stdlib_is_null, stdlib_is_null_shape()), context));
+
     ContextFrame::new_with_bindings(bindings)
 }
