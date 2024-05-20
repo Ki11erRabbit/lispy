@@ -7,12 +7,15 @@ fn unbox<T>(value: Box<[T]>) -> Box<[T]> {
 	value
 }
 
-pub fn run(file: File) -> Result<(), Box<dyn std::error::Error>> {
-    let mut context = Context::new();
+pub fn run(file: File, context: &mut Context) -> Result<(), Box<dyn std::error::Error>> {
 
     for sexpr in file {
-	let value = walk_through(&sexpr, &mut context)?;
+	let value = walk_through(&sexpr, context)?;
 	//println!("{:?}", value);
+	if crate::gc::is_gc_on() {
+	    println!("gc");
+	    context.garbage_collect();
+	}
     }
     Ok(())
 }
@@ -25,7 +28,7 @@ fn walk_through(sexpr: &Sexpr, context: &mut Context) -> Result<Option<Value>, B
 	Sexpr::Atom(atom) => {
 	    match atom {
 		Atom::String(s) => {
-		    Ok(Some(Value::new_string(s)))
+		    Ok(Some(Value::new_string(s, context)))
 		}
 		Atom::Integer(i) => {
 		    Ok(Some(Value::new_integer(&i)))
@@ -59,7 +62,7 @@ fn walk_through(sexpr: &Sexpr, context: &mut Context) -> Result<Option<Value>, B
 		    }
 		}
 	    }
-	    Ok(Some(Value::new_list(output)))
+	    Ok(Some(Value::new_list(output, context)))
 	},
 	Sexpr::List(list) => {
 	    walk_through_list(list, context)
@@ -114,7 +117,8 @@ fn walk_through_define(list: &Vec<Sexpr>, context: &mut Context) -> Result<Optio
 	    let args = args.into_iter().collect::<Result<Vec<String>, Box<Exception>>>()?;
 
 	    let function = Function::Tree(args.clone(), body.clone(), context.copy_frame(), FunctionShape::new(args));
-	    context.define(&name, Value::new_function(function));
+	    let function = Value::new_function(function, context);
+	    context.define(&name, function);
 	    Ok(None)
 	},
 	_ => Err(Box::new(Exception::new(vec!["define".to_string()], "unusual syntax".to_string()))),
@@ -131,7 +135,7 @@ fn walk_through_lambda(list: &Vec<Sexpr>, context: &mut Context) -> Result<Optio
 	    let args = args.into_iter().collect::<Result<Vec<String>, Box<Exception>>>()?;
 
 	    let function = Function::Tree(args.clone(), body.clone(), context.copy_frame(), FunctionShape::new(args));
-	    Ok(Some(Value::new_function(function)))
+	    Ok(Some(Value::new_function(function, context)))
 	},
 	_ => Err(Box::new(Exception::new(vec!["lambda".to_string()], "unusual syntax".to_string()))),
     }
@@ -324,7 +328,7 @@ fn walk_through_call(list: &Vec<Sexpr>, context: &mut Context) -> Result<Option<
 
 		shape.check(&name, &args, &keyword_args)?;
 		
-		Ok(Some(f(args, keyword_args)?))
+		Ok(Some(f(context, args, keyword_args)?))
 	    }
 	}
     } else {

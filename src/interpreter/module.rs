@@ -48,6 +48,31 @@ impl Module {
 	    }
 	}
     }
+
+    pub fn mark(&mut self) {
+	match &mut self.raw_module {
+	    RawModule::File(_) => {},
+	    RawModule::Loaded { submodules, frame } => {
+		for (_, module) in submodules.iter_mut() {
+		    module.mark();
+		}
+		frame.mark();
+	    }
+	}
+    }
+
+    pub fn unmark(&mut self) {
+	match &mut self.raw_module {
+	    RawModule::File(_) => {},
+	    RawModule::Loaded { submodules, frame } => {
+		for (_, module) in submodules.iter_mut() {
+		    module.unmark();
+		}
+		frame.unmark();
+	    }
+	}
+    }
+		    
 }
 
 enum RawModule {

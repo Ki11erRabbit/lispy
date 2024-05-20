@@ -1,7 +1,12 @@
 use std::collections::HashMap; 
+use crate::gc::{self, Gc};
 use crate::interpreter::value::Value;
 use crate::interpreter::module::Module;
 use crate::stdlib::get_stdlib;
+use std::sync::{Arc, RwLock};
+use std::sync::mpsc::Sender;
+
+use super::value::GcValue;
 
 #[derive(Clone)]
 pub struct ContextFrame {
@@ -23,20 +28,39 @@ impl ContextFrame {
     pub fn get(&self, name: &str) -> Option<&Value> {
 	self.bindings.get(name)
     }
+
+    pub fn mark(&mut self) {
+	for (_, value) in self.bindings.iter_mut() {
+	    value.mark();
+	}
+    }
+
+    pub fn unmark(&mut self) {
+	for (_, value) in self.bindings.iter_mut() {
+	    value.unmark();
+	}
+    }
     
 }
 
 pub struct Context {
+    gc_lock: Arc<RwLock<()>>,
+    sender: Sender<Gc<GcValue>>,
     modules: HashMap<String, Module>,
     frames: Vec<ContextFrame>,
 }
 
 impl Context {
-    pub fn new() -> Self {
-	Context {
+    pub fn new(gc_lock: Arc<RwLock<()>>, sender: Sender<Gc<GcValue>>) -> Self {
+	let mut ctx = Context {
+	    gc_lock,
+	    sender,
 	    modules: HashMap::new(),
-	    frames: vec![get_stdlib()],
-	}
+	    frames: vec![],
+	};
+	let stdlib = get_stdlib(&mut ctx);
+	ctx.frames.push(stdlib);
+	ctx
     }
 
     pub fn push_frame(&mut self, frame: Option<ContextFrame>) {
@@ -84,5 +108,28 @@ impl Context {
 	self.modules.insert(name.to_string(), module);
     }
     
+    pub fn garbage_collect(&mut self) {
+	let lock = self.gc_lock.read().unwrap();
+	for frame in self.frames.iter_mut() {
+	    frame.mark();
+	}
+	for (_, module) in self.modules.iter_mut() {
+	    module.mark();
+	}
+	drop(lock);
+	while gc::is_gc_on() {
 
+	}
+	for frame in self.frames.iter_mut() {
+	    frame.unmark();
+	}
+	for (_, module) in self.modules.iter_mut() {
+	    module.unmark();
+	}
+	
+    }
+
+    pub fn send_gc(&mut self, gc: Gc<GcValue>) {
+	self.sender.send(gc).unwrap();
+    }
 }

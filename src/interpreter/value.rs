@@ -2,32 +2,47 @@ use rug::Integer;
 use std::collections::HashMap;
 use crate::parser::Sexpr;
 
-use super::{context::ContextFrame, Exception};
+use crate::gc::Gc;
+
+use super::{context::{ContextFrame, Context}, Exception};
 
 
-
+pub struct Nil;
 
 
 #[derive(Clone)]
 pub struct Value {
-    raw: RawValue,
+    raw: RawValue, 
 }
 
 impl Value {
-    pub fn new_string(value: &str) -> Self {
+    pub fn new_string(value: &str, context: &mut Context) -> Self {
+	let gc_object = Gc::new(GcValue::String(value.to_string()), context);
+	context.send_gc(gc_object.clone());
+	let raw = RawValue::Gc(gc_object);
 	Value {
-	    raw: RawValue::String(value.to_string()),
+	    raw,
 	}
     }
     pub fn get_string(&self) -> Result<&String, Box<dyn std::error::Error>> {
-	match &self.raw {
-	    RawValue::String(s) => Ok(s),
+	match self.raw {
+	    RawValue::Gc(ref gc) => {
+		match gc.get() {
+		    GcValue::String(ref s) => Ok(s),
+		    _ => Err(Box::new(Exception::new(Vec::new(), "not a string".to_string()))),
+		}
+	    },
 	    _ => Err(Box::new(Exception::new(Vec::new(), "not a string".to_string()))),
 	}
     }
     pub fn is_string(&self) -> bool {
-	match &self.raw {
-	    RawValue::String(_) => true,
+	match self.raw {
+	    RawValue::Gc(ref gc) => {
+		match gc.get() {
+		    GcValue::String(_) => true,
+		    _ => false,
+		}
+	    },
 	    _ => false,
 	}
     }
@@ -43,13 +58,13 @@ impl Value {
 	}
     }
     pub fn get_integer(&self) -> Result<&Integer, Box<dyn std::error::Error>> {
-	match &self.raw {
-	    RawValue::Integer(i) => Ok(i),
+	match self.raw {
+	    RawValue::Integer(ref i) => Ok(i),
 	    _ => Err(Box::new(Exception::new(Vec::new(), "not an integer".to_string()))),
 	}
     }
     pub fn is_integer(&self) -> bool {
-	match &self.raw {
+	match self.raw {
 	    RawValue::Integer(_) => true,
 	    _ => false,
 	}
@@ -61,13 +76,13 @@ impl Value {
 	}
     }
     pub fn get_float(&self) -> Result<f64, Box<dyn std::error::Error>> {
-	match &self.raw {
-	    RawValue::Float(f) => Ok(*f),
+	match self.raw {
+	    RawValue::Float(f) => Ok(f),
 	    _ => Err(Box::new(Exception::new(Vec::new(), "not a float".to_string()))),
 	}
     }
     pub fn is_float(&self) -> bool {
-	match &self.raw {
+	match self.raw {
 	    RawValue::Float(_) => true,
 	    _ => false,
 	}
@@ -79,13 +94,13 @@ impl Value {
 	}
     }
     pub fn get_boolean(&self) -> Result<bool, Box<dyn std::error::Error>> {
-	match &self.raw {
-	    RawValue::Boolean(b) => Ok(*b),
+	match self.raw {
+	    RawValue::Boolean(b) => Ok(b),
 	    _ => Err(Box::new(Exception::new(Vec::new(), "not a boolean".to_string()))),
 	}
     }
     pub fn is_boolean(&self) -> bool {
-	match &self.raw {
+	match self.raw {
 	    RawValue::Boolean(_) => true,
 	    _ => false,
 	}
@@ -97,28 +112,41 @@ impl Value {
 	}
     }
 
-    pub fn new_sexpr(value: Sexpr) -> Self {
+    pub fn new_sexpr(value: Sexpr, context: &mut Context) -> Self {
+	let gc_object = Gc::new(GcValue::Sexpr(value), context);
+	context.send_gc(gc_object.clone());
 	Value {
-	    raw: RawValue::Sexpr(value),
+	    raw: RawValue::Gc(gc_object),
 	}
     }
 
-    pub fn new_function(value: Function) -> Self {
+    pub fn new_function(value: Function, context: &mut Context) -> Self {
+	let gc_object = Gc::new(GcValue::Function(value), context);
+	context.send_gc(gc_object.clone());
+	
 	Value {
-	    raw: RawValue::Function(value),
+	    raw: RawValue::Gc(gc_object),
 	}
     }
 
     pub fn get_function(&self) -> Result<&Function, Box<dyn std::error::Error>> {
-	match &self.raw {
-	    RawValue::Function(f) => Ok(f),
+	match self.raw {
+	    RawValue::Gc(ref gc) => {
+		match gc.get() {
+		    GcValue::Function(ref f) => Ok(f),
+		    _ => Err(Box::new(Exception::new(Vec::new(), "not a function".to_string()))),
+		}
+	    }
 	    _ => Err(Box::new(Exception::new(Vec::new(), "not a function".to_string()))),
 	}
     }
 
-    pub fn new_list(value: Vec<Value>) -> Self {
+    pub fn new_list(value: Vec<Value>, context: &mut Context) -> Self {
+	let gc_object = Gc::new(GcValue::List(value), context);
+	context.send_gc(gc_object.clone());
+	
 	Value {
-	    raw: RawValue::List(value),
+	    raw: RawValue::Gc(gc_object),
 	}
     }
 
@@ -128,9 +156,60 @@ impl Value {
 	}
     }
     pub fn is_nil(&self) -> bool {
-	match &self.raw {
+	match self.raw {
 	    RawValue::Nil => true,
 	    _ => false,
+	}
+    }
+
+    pub fn mark(&mut self) {
+	match self.raw {
+	    RawValue::Gc(ref mut gc) => {
+		gc.mark();
+		match gc.get_mut() {
+		    GcValue::List(ref mut list) => {
+			for v in list {
+			    v.mark();
+			}
+		    },
+		    GcValue::Function(ref mut f) => {
+			match f {
+			    Function::Tree(_, _, frame, _) => {
+				frame.mark();
+			    }
+			    Function::Native(_, _) => {},
+			}
+		    },
+		    _ => {},
+		}
+		gc.mark();
+	    },
+	    _ => {},
+	}
+    }
+
+    pub fn unmark(&mut self) {
+	match self.raw {
+	    RawValue::Gc(ref mut gc) => {
+		gc.unmark();
+		match gc.get_mut() {
+		    GcValue::List(ref mut list) => {
+			for v in list {
+			    v.unmark();
+			}
+		    },
+		    GcValue::Function(ref mut f) => {
+			match f {
+			    Function::Tree(_, _, frame, _) => {
+				frame.unmark();
+			    }
+			    Function::Native(_, _) => {},
+			}
+		    },
+		    _ => {},
+		}
+	    },
+	    _ => {},
 	}
     }
     
@@ -138,21 +217,25 @@ impl Value {
 
 #[derive(Clone)]
 enum RawValue {
-    String(String),
+    Gc(Gc<GcValue>),
     Integer(Integer),
     Float(f64),
     Boolean(bool),
     Symbol(Vec<String>),
+    Nil,
+}
+
+pub enum GcValue {
+    String(String),
     Sexpr(Sexpr),
     Function(Function),
     List(Vec<Value>),
-    Nil,
 }
 
 #[derive(Clone)]
 pub enum Function {
     Tree(Vec<String>, Sexpr, ContextFrame, FunctionShape),
-    Native(fn(Vec<Value>, HashMap<String, Value>) -> Result<Value, Box<dyn std::error::Error>>, FunctionShape),
+    Native(fn(&mut Context, Vec<Value>, HashMap<String, Value>) -> Result<Value, Box<dyn std::error::Error>>, FunctionShape),
 }
 
 #[derive(Clone)]

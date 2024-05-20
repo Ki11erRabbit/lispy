@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use rug::Integer;
 
-use crate::interpreter::{value::{Value, FunctionShape, Function}, context::ContextFrame};
+use crate::interpreter::{value::{Value, FunctionShape, Function}, context::{ContextFrame, Context}};
 
 fn check_for_floats(args: &Vec<Value>, keyword_args: &HashMap<String, Value>) -> bool {
     let mut floats_exist = false;
@@ -27,7 +27,7 @@ fn stdlib_plus_shape() -> FunctionShape {
     FunctionShape::new(vec!["x".to_string(), "y".to_string()])
 } 
 
-fn stdlib_plus(args: Vec<Value>, keyword_args: HashMap<String, Value>) -> Result<Value, Box<dyn std::error::Error>> {
+fn stdlib_plus(_: &mut Context, args: Vec<Value>, keyword_args: HashMap<String, Value>) -> Result<Value, Box<dyn std::error::Error>> {
     let float_exists = check_for_floats(&args, &keyword_args);
 
     if float_exists {
@@ -85,7 +85,7 @@ fn stdlib_sub_shape() -> FunctionShape {
     FunctionShape::new(vec!["x".to_string(), "y".to_string()])
 } 
 
-fn stdlib_sub(args: Vec<Value>, keyword_args: HashMap<String, Value>) -> Result<Value, Box<dyn std::error::Error>> {
+fn stdlib_sub(_: &mut Context, args: Vec<Value>, keyword_args: HashMap<String, Value>) -> Result<Value, Box<dyn std::error::Error>> {
     let float_exists = check_for_floats(&args, &keyword_args);
 
     if float_exists {
@@ -179,7 +179,7 @@ fn stdlib_mul_shape() -> FunctionShape {
     FunctionShape::new(vec!["x".to_string(), "y".to_string()])
 } 
 
-fn stdlib_mul(args: Vec<Value>, keyword_args: HashMap<String, Value>) -> Result<Value, Box<dyn std::error::Error>> {
+fn stdlib_mul(_: &mut Context, args: Vec<Value>, keyword_args: HashMap<String, Value>) -> Result<Value, Box<dyn std::error::Error>> {
     let float_exists = check_for_floats(&args, &keyword_args);
 
     if float_exists {
@@ -237,7 +237,7 @@ fn stdlib_div_shape() -> FunctionShape {
     FunctionShape::new(vec!["x".to_string(), "y".to_string()])
 } 
 
-fn stdlib_div(args: Vec<Value>, keyword_args: HashMap<String, Value>) -> Result<Value, Box<dyn std::error::Error>> {
+fn stdlib_div(_: &mut Context, args: Vec<Value>, keyword_args: HashMap<String, Value>) -> Result<Value, Box<dyn std::error::Error>> {
     let float_exists = check_for_floats(&args, &keyword_args);
 
     if float_exists {
@@ -347,7 +347,7 @@ fn stdlib_div(args: Vec<Value>, keyword_args: HashMap<String, Value>) -> Result<
 
 macro_rules! numeric_equality_check {
     ($name:ident, $op:tt) => {
-fn $name(args: Vec<Value>, keyword_args: HashMap<String, Value>) -> Result<Value, Box<dyn std::error::Error>> {
+fn $name(_: &mut Context, args: Vec<Value>, keyword_args: HashMap<String, Value>) -> Result<Value, Box<dyn std::error::Error>> {
     if args.len() == 2 {
 	if args[0].is_integer() && args[1].is_integer() {
 	    let x = args[0].get_integer()?;
@@ -468,7 +468,7 @@ fn stdlib_display_shape() -> FunctionShape {
     FunctionShape::new(vec!["str".to_string()])
 } 
 
-fn stdlib_display(args: Vec<Value>, keyword_args: HashMap<String, Value>) -> Result<Value, Box<dyn std::error::Error>> {
+fn stdlib_display(_: &mut Context, args: Vec<Value>, keyword_args: HashMap<String, Value>) -> Result<Value, Box<dyn std::error::Error>> {
 
     if args.len() != 1 {
 	if keyword_args.get("str").unwrap().is_string() {
@@ -493,7 +493,7 @@ fn stdlib_or_shape() -> FunctionShape {
 	FunctionShape::new(vec!["x".to_string(), "y".to_string()])
 }
 
-fn stdlib_or(args: Vec<Value>, keyword_args: HashMap<String, Value>) -> Result<Value, Box<dyn std::error::Error>> {
+fn stdlib_or(_: &mut Context, args: Vec<Value>, keyword_args: HashMap<String, Value>) -> Result<Value, Box<dyn std::error::Error>> {
 	if args.len() == 2 {
 	if args[0].is_boolean() && args[1].is_boolean() {
 	    let x = args[0].get_boolean()?;
@@ -537,7 +537,7 @@ fn stdlib_and_shape() -> FunctionShape {
 	FunctionShape::new(vec!["x".to_string(), "y".to_string()])
 }
 
-fn stdlib_and(args: Vec<Value>, keyword_args: HashMap<String, Value>) -> Result<Value, Box<dyn std::error::Error>> {
+fn stdlib_and(_: &mut Context, args: Vec<Value>, keyword_args: HashMap<String, Value>) -> Result<Value, Box<dyn std::error::Error>> {
 	if args.len() == 2 {
 	if args[0].is_boolean() && args[1].is_boolean() {
 	    let x = args[0].get_boolean()?;
@@ -581,7 +581,7 @@ fn stdlib_not_shape() -> FunctionShape {
 	FunctionShape::new(vec!["x".to_string()])
 }
 
-fn stdlib_not(args: Vec<Value>, keyword_args: HashMap<String, Value>) -> Result<Value, Box<dyn std::error::Error>> {
+fn stdlib_not(_: &mut Context, args: Vec<Value>, keyword_args: HashMap<String, Value>) -> Result<Value, Box<dyn std::error::Error>> {
 	if args.len() == 1 {
 	if args[0].is_boolean() {
 	    let x = args[0].get_boolean()?;
@@ -600,21 +600,47 @@ fn stdlib_not(args: Vec<Value>, keyword_args: HashMap<String, Value>) -> Result<
 	}
 }
 
-pub fn get_stdlib() -> ContextFrame {
+fn stdlib_sleep_shape() -> FunctionShape {
+    FunctionShape::new(vec!["seconds".to_string()])
+}
+
+fn stdlib_sleep(_: &mut Context, args: Vec<Value>, keyword_args: HashMap<String, Value>) -> Result<Value, Box<dyn std::error::Error>> {
+    if args.len() == 1 {
+    if args[0].is_integer() {
+	let x = args[0].get_integer()?;
+	std::thread::sleep(std::time::Duration::from_secs(x.to_u64().unwrap()));
+	return Ok(Value::new_nil());
+    } else {
+	todo!("error");
+    }
+    } else {
+	let x = keyword_args.get("seconds").unwrap();
+	if x.is_integer() {
+	    let x = x.get_integer()?;
+	    std::thread::sleep(std::time::Duration::from_secs(x.to_u64().unwrap()));
+	    return Ok(Value::new_nil());
+	} else {
+	    todo!("error");
+	}
+    }
+}
+
+pub fn get_stdlib(context: &mut Context) -> ContextFrame {
     let mut bindings = HashMap::new();
 
-    bindings.insert("+".to_string(), Value::new_function(Function::Native(stdlib_plus, stdlib_plus_shape())));
-    bindings.insert("-".to_string(), Value::new_function(Function::Native(stdlib_sub, stdlib_sub_shape())));
-    bindings.insert("*".to_string(), Value::new_function(Function::Native(stdlib_mul, stdlib_mul_shape())));
-    bindings.insert("/".to_string(), Value::new_function(Function::Native(stdlib_div, stdlib_div_shape())));
-    bindings.insert(">".to_string(), Value::new_function(Function::Native(stdlib_greater_than, stdlib_greater_than_shape())));
-    bindings.insert("<".to_string(), Value::new_function(Function::Native(stdlib_less_than, stdlib_less_than_shape())));
-    bindings.insert(">=".to_string(), Value::new_function(Function::Native(stdlib_greater_than_or_equal, stdlib_greater_than_or_equal_shape())));
-    bindings.insert("<=".to_string(), Value::new_function(Function::Native(stdlib_less_than_or_equal, stdlib_less_than_or_equal_shape())));
-    bindings.insert("=".to_string(), Value::new_function(Function::Native(stdlib_equal, stdlib_equal_to_shape())));
-    bindings.insert("display".to_string(), Value::new_function(Function::Native(stdlib_display, stdlib_display_shape())));
-    bindings.insert("or".to_string(), Value::new_function(Function::Native(stdlib_or, stdlib_or_shape())));
-    bindings.insert("and".to_string(), Value::new_function(Function::Native(stdlib_and, stdlib_and_shape())));
-    bindings.insert("not".to_string(), Value::new_function(Function::Native(stdlib_not, stdlib_not_shape())));
+    bindings.insert("+".to_string(), Value::new_function(Function::Native(stdlib_plus, stdlib_plus_shape()), context));
+    bindings.insert("-".to_string(), Value::new_function(Function::Native(stdlib_sub, stdlib_sub_shape()), context));
+    bindings.insert("*".to_string(), Value::new_function(Function::Native(stdlib_mul, stdlib_mul_shape()), context));
+    bindings.insert("/".to_string(), Value::new_function(Function::Native(stdlib_div, stdlib_div_shape()), context));
+    bindings.insert(">".to_string(), Value::new_function(Function::Native(stdlib_greater_than, stdlib_greater_than_shape()), context));
+    bindings.insert("<".to_string(), Value::new_function(Function::Native(stdlib_less_than, stdlib_less_than_shape()), context));
+    bindings.insert(">=".to_string(), Value::new_function(Function::Native(stdlib_greater_than_or_equal, stdlib_greater_than_or_equal_shape()), context));
+    bindings.insert("<=".to_string(), Value::new_function(Function::Native(stdlib_less_than_or_equal, stdlib_less_than_or_equal_shape()), context));
+    bindings.insert("=".to_string(), Value::new_function(Function::Native(stdlib_equal, stdlib_equal_to_shape()), context));
+    bindings.insert("display".to_string(), Value::new_function(Function::Native(stdlib_display, stdlib_display_shape()), context));
+    bindings.insert("or".to_string(), Value::new_function(Function::Native(stdlib_or, stdlib_or_shape()), context));
+    bindings.insert("and".to_string(), Value::new_function(Function::Native(stdlib_and, stdlib_and_shape()), context));
+    bindings.insert("not".to_string(), Value::new_function(Function::Native(stdlib_not, stdlib_not_shape()), context));
+    bindings.insert("sleep".to_string(), Value::new_function(Function::Native(stdlib_sleep, stdlib_sleep_shape()), context));
     ContextFrame::new_with_bindings(bindings)
 }
