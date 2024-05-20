@@ -345,6 +345,125 @@ fn stdlib_div(args: Vec<Value>, keyword_args: HashMap<String, Value>) -> Result<
     }
 }
 
+macro_rules! numeric_equality_check {
+    ($name:ident, $op:tt) => {
+fn $name(args: Vec<Value>, keyword_args: HashMap<String, Value>) -> Result<Value, Box<dyn std::error::Error>> {
+    if args.len() == 2 {
+	if args[0].is_integer() && args[1].is_integer() {
+	    let x = args[0].get_integer()?;
+	    let y = args[1].get_integer()?;
+	    return Ok(Value::new_boolean(x $op y));
+	} else if args[0].is_float() && args[1].is_float() {
+	    let x = args[0].get_float()?;
+	    let y = args[1].get_float()?;
+	    return Ok(Value::new_boolean(x $op y));
+	} else if args[0].is_integer() && args[1].is_float() {
+	    let x = args[0].get_integer()?.to_f64();
+	    let y = args[1].get_float()?;
+	    return Ok(Value::new_boolean(x $op y));
+	} else if args[0].is_float() && args[1].is_integer() {
+	    let x = args[0].get_float()?;
+	    let y = args[1].get_integer()?.to_f64();
+	    return Ok(Value::new_boolean(x $op y));
+	} else {
+	    todo!("error");
+	}
+    } else if args.len() == 1 {
+	if args[0].is_integer() {
+	    let x = args[0].get_integer()?;
+	    match keyword_args.get("y") {
+		Some(value) => {
+		    if value.is_integer() {
+			return Ok(Value::new_boolean(x $op value.get_integer()?));
+		    } else if value.is_float() {
+			return Ok(Value::new_boolean(x.to_f64() $op value.get_float()?));
+		    } else {
+			todo!("error");
+		    }
+		}
+		None => {
+		    todo!("error");
+		}
+	    }
+	} else if args[0].is_float() {
+	    let x = args[0].get_float()?;
+	    match keyword_args.get("y") {
+		Some(value) => {
+		    if value.is_integer() { 
+			return Ok(Value::new_boolean(x $op value.get_integer()?.to_f64()));
+		    } else if value.is_float() {
+			return Ok(Value::new_boolean(x $op value.get_float()?));
+		    } else {
+			todo!("error");
+		    }
+		}
+		None => {
+		    todo!("error");
+		}
+	    }
+	} else {
+	    let x = keyword_args.get("x").unwrap();
+	    let y = keyword_args.get("y").unwrap();
+	    if x.is_integer() && y.is_integer() {
+		let x = x.get_integer()?;
+		let y = y.get_integer()?;
+		return Ok(Value::new_boolean(x $op y));
+	    } else if x.is_float() && y.is_float() {
+		let x = x.get_float()?;
+		let y = y.get_float()?;
+		return Ok(Value::new_boolean(x $op y));
+	    } else if x.is_integer() && y.is_float() {
+		let x = x.get_integer()?.to_f64();
+		let y = y.get_float()?;
+		return Ok(Value::new_boolean(x $op y));
+	    } else if x.is_float() && y.is_integer() {
+		let x = x.get_float()?;
+		let y = y.get_integer()?.to_f64();
+		return Ok(Value::new_boolean(x $op y));
+	    } else {
+		todo!("error");
+	    }
+	}
+
+    }
+    todo!("error");
+	
+}
+    }
+}
+
+fn stdlib_greater_than_shape() -> FunctionShape {
+	FunctionShape::new(vec!["x".to_string(), "y".to_string()])
+}
+
+numeric_equality_check!(stdlib_greater_than, >);
+
+fn stdlib_less_than_shape() -> FunctionShape {
+	FunctionShape::new(vec!["x".to_string(), "y".to_string()])
+}
+
+numeric_equality_check!(stdlib_less_than, <);
+
+fn stdlib_greater_than_or_equal_shape() -> FunctionShape {
+	FunctionShape::new(vec!["x".to_string(), "y".to_string()])
+}
+
+numeric_equality_check!(stdlib_greater_than_or_equal, >=);
+
+fn stdlib_less_than_or_equal_shape() -> FunctionShape {
+	FunctionShape::new(vec!["x".to_string(), "y".to_string()])
+}
+
+numeric_equality_check!(stdlib_less_than_or_equal, <=);
+
+fn stdlib_equal_to_shape() -> FunctionShape {
+	FunctionShape::new(vec!["x".to_string(), "y".to_string()])
+}
+
+numeric_equality_check!(stdlib_equal, ==);
+
+
+
 fn stdlib_display_shape() -> FunctionShape {
     FunctionShape::new(vec!["str".to_string()])
 } 
@@ -370,6 +489,116 @@ fn stdlib_display(args: Vec<Value>, keyword_args: HashMap<String, Value>) -> Res
     Ok(Value::new_nil())
 }
 
+fn stdlib_or_shape() -> FunctionShape {
+	FunctionShape::new(vec!["x".to_string(), "y".to_string()])
+}
+
+fn stdlib_or(args: Vec<Value>, keyword_args: HashMap<String, Value>) -> Result<Value, Box<dyn std::error::Error>> {
+	if args.len() == 2 {
+	if args[0].is_boolean() && args[1].is_boolean() {
+	    let x = args[0].get_boolean()?;
+	    let y = args[1].get_boolean()?;
+	    return Ok(Value::new_boolean(x || y));
+	} else {
+	    todo!("error");
+	}
+	} else if args.len() == 1 {
+	if args[0].is_boolean() {
+	    let x = args[0].get_boolean()?;
+	    match keyword_args.get("y") {
+		Some(value) => {
+		    if value.is_boolean() { 
+			return Ok(Value::new_boolean(x || value.get_boolean()?));
+		    } else {
+			todo!("error");
+		    }
+		}
+		None => {
+		    todo!("error");
+		}
+	    }
+	} else {
+	    let x = keyword_args.get("x").unwrap();
+	    let y = keyword_args.get("y").unwrap();
+	    if x.is_boolean() && y.is_boolean() {
+		let x = x.get_boolean()?;
+		let y = y.get_boolean()?;
+		return Ok(Value::new_boolean(x || y));
+	    } else {
+		todo!("error");
+	    }
+	}
+
+	}
+	todo!("error");
+}
+
+fn stdlib_and_shape() -> FunctionShape {
+	FunctionShape::new(vec!["x".to_string(), "y".to_string()])
+}
+
+fn stdlib_and(args: Vec<Value>, keyword_args: HashMap<String, Value>) -> Result<Value, Box<dyn std::error::Error>> {
+	if args.len() == 2 {
+	if args[0].is_boolean() && args[1].is_boolean() {
+	    let x = args[0].get_boolean()?;
+	    let y = args[1].get_boolean()?;
+	    return Ok(Value::new_boolean(x && y));
+	} else {
+	    todo!("error");
+	}
+	} else if args.len() == 1 {
+	if args[0].is_boolean() {
+	    let x = args[0].get_boolean()?;
+	    match keyword_args.get("y") {
+		Some(value) => {
+		    if value.is_boolean() { 
+			return Ok(Value::new_boolean(x && value.get_boolean()?));
+		    } else {
+			todo!("error");
+		    }
+		}
+		None => {
+		    todo!("error");
+		}
+	    }
+	} else {
+	    let x = keyword_args.get("x").unwrap();
+	    let y = keyword_args.get("y").unwrap();
+	    if x.is_boolean() && y.is_boolean() {
+		let x = x.get_boolean()?;
+		let y = y.get_boolean()?;
+		return Ok(Value::new_boolean(x && y));
+	    } else {
+		todo!("error");
+	    }
+	}
+
+	}
+	todo!("error");
+}
+
+fn stdlib_not_shape() -> FunctionShape {
+	FunctionShape::new(vec!["x".to_string()])
+}
+
+fn stdlib_not(args: Vec<Value>, keyword_args: HashMap<String, Value>) -> Result<Value, Box<dyn std::error::Error>> {
+	if args.len() == 1 {
+	if args[0].is_boolean() {
+	    let x = args[0].get_boolean()?;
+	    return Ok(Value::new_boolean(!x));
+	} else {
+	    todo!("error");
+	}
+	} else {
+	    let x = keyword_args.get("x").unwrap();
+	    if x.is_boolean() {
+		let x = x.get_boolean()?;
+		return Ok(Value::new_boolean(!x));
+	    } else {
+		todo!("error");
+	    }
+	}
+}
 
 pub fn get_stdlib() -> ContextFrame {
     let mut bindings = HashMap::new();
@@ -378,6 +607,14 @@ pub fn get_stdlib() -> ContextFrame {
     bindings.insert("-".to_string(), Value::new_function(Function::Native(stdlib_sub, stdlib_sub_shape())));
     bindings.insert("*".to_string(), Value::new_function(Function::Native(stdlib_mul, stdlib_mul_shape())));
     bindings.insert("/".to_string(), Value::new_function(Function::Native(stdlib_div, stdlib_div_shape())));
+    bindings.insert(">".to_string(), Value::new_function(Function::Native(stdlib_greater_than, stdlib_greater_than_shape())));
+    bindings.insert("<".to_string(), Value::new_function(Function::Native(stdlib_less_than, stdlib_less_than_shape())));
+    bindings.insert(">=".to_string(), Value::new_function(Function::Native(stdlib_greater_than_or_equal, stdlib_greater_than_or_equal_shape())));
+    bindings.insert("<=".to_string(), Value::new_function(Function::Native(stdlib_less_than_or_equal, stdlib_less_than_or_equal_shape())));
+    bindings.insert("=".to_string(), Value::new_function(Function::Native(stdlib_equal, stdlib_equal_to_shape())));
     bindings.insert("display".to_string(), Value::new_function(Function::Native(stdlib_display, stdlib_display_shape())));
+    bindings.insert("or".to_string(), Value::new_function(Function::Native(stdlib_or, stdlib_or_shape())));
+    bindings.insert("and".to_string(), Value::new_function(Function::Native(stdlib_and, stdlib_and_shape())));
+    bindings.insert("not".to_string(), Value::new_function(Function::Native(stdlib_not, stdlib_not_shape())));
     ContextFrame::new_with_bindings(bindings)
 }

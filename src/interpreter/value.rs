@@ -2,7 +2,7 @@ use rug::Integer;
 use std::collections::HashMap;
 use crate::parser::Sexpr;
 
-use super::context::ContextFrame;
+use super::{context::ContextFrame, Exception};
 
 
 
@@ -10,7 +10,7 @@ use super::context::ContextFrame;
 
 #[derive(Clone)]
 pub struct Value {
-    pub raw: RawValue,
+    raw: RawValue,
 }
 
 impl Value {
@@ -22,7 +22,7 @@ impl Value {
     pub fn get_string(&self) -> Result<&String, Box<dyn std::error::Error>> {
 	match &self.raw {
 	    RawValue::String(s) => Ok(s),
-	    _ => todo!("error"),
+	    _ => Err(Box::new(Exception::new(Vec::new(), "not a string".to_string()))),
 	}
     }
     pub fn is_string(&self) -> bool {
@@ -45,7 +45,13 @@ impl Value {
     pub fn get_integer(&self) -> Result<&Integer, Box<dyn std::error::Error>> {
 	match &self.raw {
 	    RawValue::Integer(i) => Ok(i),
-	    _ => todo!("error"),
+	    _ => Err(Box::new(Exception::new(Vec::new(), "not an integer".to_string()))),
+	}
+    }
+    pub fn is_integer(&self) -> bool {
+	match &self.raw {
+	    RawValue::Integer(_) => true,
+	    _ => false,
 	}
     }
 
@@ -57,7 +63,7 @@ impl Value {
     pub fn get_float(&self) -> Result<f64, Box<dyn std::error::Error>> {
 	match &self.raw {
 	    RawValue::Float(f) => Ok(*f),
-	    _ => todo!("error"),
+	    _ => Err(Box::new(Exception::new(Vec::new(), "not a float".to_string()))),
 	}
     }
     pub fn is_float(&self) -> bool {
@@ -72,11 +78,16 @@ impl Value {
 	    raw: RawValue::Boolean(value),
 	}
     }
-
     pub fn get_boolean(&self) -> Result<bool, Box<dyn std::error::Error>> {
 	match &self.raw {
 	    RawValue::Boolean(b) => Ok(*b),
-	    _ => todo!("error"),
+	    _ => Err(Box::new(Exception::new(Vec::new(), "not a boolean".to_string()))),
+	}
+    }
+    pub fn is_boolean(&self) -> bool {
+	match &self.raw {
+	    RawValue::Boolean(_) => true,
+	    _ => false,
 	}
     }
 
@@ -101,7 +112,7 @@ impl Value {
     pub fn get_function(&self) -> Result<&Function, Box<dyn std::error::Error>> {
 	match &self.raw {
 	    RawValue::Function(f) => Ok(f),
-	    _ => todo!("error"),
+	    _ => Err(Box::new(Exception::new(Vec::new(), "not a function".to_string()))),
 	}
     }
 
@@ -156,9 +167,9 @@ impl FunctionShape {
 	}
     }
 
-    pub fn check(&self, args: &Vec<Value>, keyword_args: &HashMap<String, Value>) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn check(&self, name: &Vec<String>, args: &Vec<Value>, keyword_args: &HashMap<String, Value>) -> Result<(), Box<dyn std::error::Error>> {
 	if self.args.len() != args.len() + keyword_args.len() {
-	    todo!("error");
+	    Err(Box::new(Exception::new(name.clone(), "wrong number of arguments".to_string())))?;
 	}
 
 	for (i, arg) in self.args.iter().enumerate() {
@@ -166,7 +177,7 @@ impl FunctionShape {
 		continue;
 	    } else {
 		if !keyword_args.contains_key(arg) {
-		    todo!("error");
+		    Err(Box::new(Exception::new(name.clone(), "invalid keyword".to_string())))?;
 		}
 	    }
 	}

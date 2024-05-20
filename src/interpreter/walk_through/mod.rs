@@ -1,4 +1,5 @@
 use crate::parser::{File, Sexpr, Atom};
+use super::Exception;
 use super::context::Context;
 use super::value::{Value, Function, FunctionShape};
 
@@ -38,11 +39,11 @@ fn walk_through(sexpr: &Sexpr, context: &mut Context) -> Result<Option<Value>, B
 		Atom::Symbol(s) => {
 		    match context.get(&s) {
 			Some(value) => Ok(Some(value.clone())),
-			None => todo!("error"),
+			None => Err(Box::new(Exception::new(s.clone(), "not bound".to_string()))),
 		    }
 		}
 		Atom::Keyword(k) => {
-		    todo!("keyword error")
+		    Err(Box::new(Exception::new(Vec::new(), "keyword not allowed here".to_string())))
 		}
 	    }
 	},
@@ -54,7 +55,7 @@ fn walk_through(sexpr: &Sexpr, context: &mut Context) -> Result<Option<Value>, B
 			output.push(value);
 		    }
 		    None => {
-			todo!("error");
+			return Err(Box::new(Exception::new(Vec::new(), "expression didn't result in a value".to_string())));
 		    }
 		}
 	    }
@@ -83,7 +84,7 @@ fn walk_through_list(list: &Vec<Sexpr>, context: &mut Context) -> Result<Option<
 	    _ => walk_through_call(list, context),
 	}
     } else {
-	todo!("error");
+	Err(Box::new(Exception::new(Vec::new(), "unreachable".to_string())))
     }
 }
 
@@ -97,25 +98,26 @@ fn walk_through_define(list: &Vec<Sexpr>, context: &mut Context) -> Result<Optio
 		    Ok(None)
 		}
 		None => {
-		    todo!("error");
+		    Err(Box::new(Exception::new(vec!["define".to_string()], "expression didn't result in a value".to_string())))
 		}
 	    }
 	}
 	[_, Sexpr::List(header), body] => {
 	    let name = match &header[0] {
 		Sexpr::Atom(Atom::Symbol(s)) => &s[0],
-		_ => todo!("error"),
+		_ => return Err(Box::new(Exception::new(vec!["define".to_string()], "not a symbol".to_string())))
 	    };
 	    let args = header.iter().skip(1).map(|sexpr| match sexpr {
-		Sexpr::Atom(Atom::Symbol(s)) => s[0].clone(),
-		_ => todo!("error"),
-	    }).collect::<Vec<String>>();
+		Sexpr::Atom(Atom::Symbol(s)) => Ok(s[0].clone()),
+		_ => Err(Box::new(Exception::new(vec!["define".to_string()], "not a symbol".to_string()))),
+	    }).collect::<Vec<Result<String, Box<Exception>>>>();
+	    let args = args.into_iter().collect::<Result<Vec<String>, Box<Exception>>>()?;
 
 	    let function = Function::Tree(args.clone(), body.clone(), context.copy_frame(), FunctionShape::new(args));
 	    context.define(&name, Value::new_function(function));
 	    Ok(None)
 	},
-	_ => todo!("error"),
+	_ => Err(Box::new(Exception::new(vec!["define".to_string()], "unusual syntax".to_string()))),
     }
 }
 
@@ -123,14 +125,15 @@ fn walk_through_lambda(list: &Vec<Sexpr>, context: &mut Context) -> Result<Optio
     match list.as_slice() {
 	[_, Sexpr::List(header), body] => {
 	    let args = header.iter().map(|sexpr| match sexpr {
-		Sexpr::Atom(Atom::Symbol(s)) => s[0].clone(),
-		_ => todo!("error"),
-	    }).collect::<Vec<String>>();
+		Sexpr::Atom(Atom::Symbol(s)) => Ok(s[0].clone()),
+		_ => Err(Box::new(Exception::new(vec!["lambda".to_string()], "not a symbol".to_string()))),
+	    }).collect::<Vec<Result<String, Box<Exception>>>>();
+	    let args = args.into_iter().collect::<Result<Vec<String>, Box<Exception>>>()?;
 
 	    let function = Function::Tree(args.clone(), body.clone(), context.copy_frame(), FunctionShape::new(args));
 	    Ok(Some(Value::new_function(function)))
 	},
-	_ => todo!("error"),
+	_ => Err(Box::new(Exception::new(vec!["lambda".to_string()], "unusual syntax".to_string()))),
     }
 }
 
@@ -146,10 +149,10 @@ fn walk_through_if(list: &Vec<Sexpr>, context: &mut Context) -> Result<Option<Va
 			walk_through(alternate, context)
 		    }
 		}
-		_ => todo!("error"),
+		_ => Err(Box::new(Exception::new(vec!["if".to_string()], "expression didn't result in a value".to_string())))
 	    }
 	},
-	_ => todo!("error"),
+	_ => Err(Box::new(Exception::new(vec!["if".to_string()], "unusual syntax".to_string()))),
     }
 }
 
@@ -163,11 +166,11 @@ fn walk_through_set(list: &Vec<Sexpr>, context: &mut Context) -> Result<Option<V
 		    Ok(None)
 		}
 		None => {
-		    todo!("error");
+		    Err(Box::new(Exception::new(vec!["set!".to_string()], "expression didn't result in a value".to_string())))
 		}
 	    }
 	}
-	_ => todo!("error"),
+	_ => Err(Box::new(Exception::new(vec!["set!".to_string()], "unusual syntax".to_string()))),
     }
 }
 
@@ -186,21 +189,21 @@ fn walk_through_let(list: &Vec<Sexpr>, context: &mut Context) -> Result<Option<V
 					context.define(&name[0], value);
 				    }
 				    None => {
-					todo!("error");
+					return Err(Box::new(Exception::new(vec!["let".to_string()], "expression didn't result in a value".to_string())));
 				    }
 				}
 			    }
-			    _ => todo!("error"),
+			    _ => return Err(Box::new(Exception::new(vec!["let".to_string()], "unusual syntax".to_string()))),
 			}
 		    }
-		    _ => todo!("error"),
+		    _ => return Err(Box::new(Exception::new(vec!["let".to_string()], "unusual syntax".to_string()))),
 		}
 	    }
 	    let value = walk_through(body, context);
 	    context.pop_frame();
 	    value
 	}
-	_ => todo!("error"),
+	_ => Err(Box::new(Exception::new(vec!["let".to_string()], "unusual syntax".to_string())))
     }
 }
 
@@ -217,7 +220,7 @@ fn walk_through_import(list: &Vec<Sexpr>, context: &mut Context) -> Result<Optio
 	[_, Sexpr::Atom(Atom::String(path))] => {
 	    todo!("import");
 	}
-	_ => todo!("error"),
+	_ => Err(Box::new(Exception::new(vec!["import".to_string()], "unusual syntax".to_string())))
     }
 }
 
@@ -226,7 +229,7 @@ fn walk_through_module(list: &Vec<Sexpr>, context: &mut Context) -> Result<Optio
 	[_, Sexpr::Atom(Atom::String(ref path))] => {
 	    todo!("module");
 	}
-	_ => todo!("error"),
+	_ => Err(Box::new(Exception::new(vec!["module".to_string()], "unusual syntax".to_string())))
     }
 }
 
@@ -234,7 +237,7 @@ fn walk_through_call(list: &Vec<Sexpr>, context: &mut Context) -> Result<Option<
     if let Sexpr::Atom(Atom::Symbol(name)) = &list[0] {
 	let function = match context.get(&name) {
 	    Some(f) => f.get_function()?.clone(),
-	    None => todo!("error"),
+	    None => return Err(Box::new(Exception::new(name.clone(), "not bound".to_string())))
 	};
 
 	match function {
@@ -251,11 +254,11 @@ fn walk_through_call(list: &Vec<Sexpr>, context: &mut Context) -> Result<Option<
 					keyword_args.insert(k.clone(), value);
 				    }
 				    None => {
-					todo!("error");
+					return Err(Box::new(Exception::new(vec![name[0].clone()], "expression didn't result in a value".to_string())));
 				    }
 				}
 			    } else {
-				todo!("error");
+				return Err(Box::new(Exception::new(vec![name[0].clone()], "unusual syntax".to_string())));
 			    }
 			}
 			s => {
@@ -264,14 +267,14 @@ fn walk_through_call(list: &Vec<Sexpr>, context: &mut Context) -> Result<Option<
 				    args.push(value);
 				}
 				None => {
-				    todo!("error");
+				    return Err(Box::new(Exception::new(vec![name[0].clone()], "expression didn't result in a value".to_string())));
 				}
 			    }
 			}
 		    }
 		}
 
-		shape.check(&args, &keyword_args)?;
+		shape.check(&name, &args, &keyword_args)?;
 
 		context.push_frame(Some(frame.clone()));
 
@@ -299,11 +302,11 @@ fn walk_through_call(list: &Vec<Sexpr>, context: &mut Context) -> Result<Option<
 					keyword_args.insert(k.clone(), value);
 				    }
 				    None => {
-					todo!("error");
+					return Err(Box::new(Exception::new(vec![name[0].clone()], "expression didn't result in a value".to_string())));
 				    }
 				}
 			    } else {
-				todo!("error");
+				return Err(Box::new(Exception::new(vec![name[0].clone()], "unusual syntax".to_string())));
 			    }
 			}
 			s => {
@@ -312,19 +315,19 @@ fn walk_through_call(list: &Vec<Sexpr>, context: &mut Context) -> Result<Option<
 				    args.push(value);
 				}
 				None => {
-				    todo!("error");
+				    return Err(Box::new(Exception::new(vec![name[0].clone()], "expression didn't result in a value".to_string())));
 				}
 			    }
 			}
 		    }
 		}
 
-		shape.check(&args, &keyword_args)?;
+		shape.check(&name, &args, &keyword_args)?;
 		
 		Ok(Some(f(args, keyword_args)?))
 	    }
 	}
     } else {
-	todo!("error");
+	Err(Box::new(Exception::new(Vec::new(), "unreachable".to_string())))
     }
 }
