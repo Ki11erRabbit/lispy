@@ -1,6 +1,7 @@
 use rug::Integer;
 use std::collections::HashMap;
 use crate::parser::Sexpr;
+use crate::interpreter::HelperResult;
 
 use crate::gc::Gc;
 
@@ -24,7 +25,7 @@ impl Value {
 	    raw,
 	}
     }
-    pub fn get_string(&self) -> Result<&String, Box<dyn std::error::Error>> {
+    pub fn get_string(&self) -> HelperResult<&String> {
 	match self.raw {
 	    RawValue::Gc(ref gc) => {
 		match gc.get() {
@@ -57,7 +58,7 @@ impl Value {
 	    raw: RawValue::Integer(value),
 	}
     }
-    pub fn get_integer(&self) -> Result<&Integer, Box<dyn std::error::Error>> {
+    pub fn get_integer(&self) -> HelperResult<&Integer> {
 	match self.raw {
 	    RawValue::Integer(ref i) => Ok(i),
 	    _ => Err(Box::new(Exception::new(Vec::new(), "not an integer".to_string()))),
@@ -75,7 +76,7 @@ impl Value {
 	    raw: RawValue::Float(value),
 	}
     }
-    pub fn get_float(&self) -> Result<f64, Box<dyn std::error::Error>> {
+    pub fn get_float(&self) -> HelperResult<f64> {
 	match self.raw {
 	    RawValue::Float(f) => Ok(f),
 	    _ => Err(Box::new(Exception::new(Vec::new(), "not a float".to_string()))),
@@ -93,7 +94,7 @@ impl Value {
 	    raw: RawValue::Boolean(value),
 	}
     }
-    pub fn get_boolean(&self) -> Result<bool, Box<dyn std::error::Error>> {
+    pub fn get_boolean(&self) -> HelperResult<bool> {
 	match self.raw {
 	    RawValue::Boolean(b) => Ok(b),
 	    _ => Err(Box::new(Exception::new(Vec::new(), "not a boolean".to_string()))),
@@ -141,7 +142,7 @@ impl Value {
 	    raw: RawValue::Gc(gc_object),
 	}
     }
-    pub fn get_function(&self) -> Result<&Function, Box<dyn std::error::Error>> {
+    pub fn get_function(&self) -> HelperResult<&Function> {
 	match self.raw {
 	    RawValue::Gc(ref gc) => {
 		match gc.get() {
@@ -172,7 +173,7 @@ impl Value {
 	    raw: RawValue::Gc(gc_object),
 	}
     }
-    pub fn get_vector(&self) -> Result<&Vec<Value>, Box<dyn std::error::Error>> {
+    pub fn get_vector(&self) -> HelperResult<&Vec<Value>> {
 	match self.raw {
 	    RawValue::Gc(ref gc) => {
 		match gc.get() {
@@ -202,7 +203,7 @@ impl Value {
 	    raw: RawValue::Gc(gc_object),
 	}
     }
-    pub fn get_pair(&self) -> Result<(&Value, &Value), Box<dyn std::error::Error>> {
+    pub fn get_pair(&self) -> HelperResult<(&Value, &Value)> {
 	match self.raw {
 	    RawValue::Gc(ref gc) => {
 		match gc.get() {
@@ -229,7 +230,7 @@ impl Value {
 	    raw: RawValue::Char(c),
 	}
     }
-    pub fn get_char(&self) -> Result<char, Box<dyn std::error::Error>> {
+    pub fn get_char(&self) -> HelperResult<char> {
 	match self.raw {
 	    RawValue::Char(c) => Ok(c),
 	    _ => Err(Box::new(Exception::new(Vec::new(), "not a char".to_string()))),
@@ -337,7 +338,7 @@ pub enum GcValue {
 #[derive(Clone)]
 pub enum Function {
     Tree(Vec<String>, Sexpr, ContextFrame, FunctionShape),
-    Native(fn(&mut Context, Vec<Value>, HashMap<String, Value>) -> Result<Value, Box<dyn std::error::Error>>, FunctionShape),
+    Native(fn(&mut Context, Vec<Value>, HashMap<String, Value>) -> HelperResult<Value>, FunctionShape),
 }
 
 #[derive(Clone)]
@@ -352,7 +353,7 @@ impl FunctionShape {
 	}
     }
 
-    pub fn check(&self, name: &Vec<String>, args: &Vec<Value>, keyword_args: &HashMap<String, Value>) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn check(&self, name: &Vec<String>, args: &Vec<Value>, keyword_args: &HashMap<String, Value>) -> HelperResult<()> {
 	if self.args.len() != args.len() + keyword_args.len() {
 	    Err(Box::new(Exception::new(name.clone(), "wrong number of arguments".to_string())))?;
 	}

@@ -1,5 +1,5 @@
 use std::error::Error;
-
+use crate::interpreter::value::Value;
 
 
 pub mod walk_through;
@@ -7,6 +7,10 @@ pub mod walk_through;
 pub mod context;
 pub mod value;
 pub mod module;
+
+
+pub type InterpreterResult = Result<Option<Value>, Box<Exception>>;
+pub type HelperResult<T> = std::result::Result<T, Box<Exception>>;
 
 #[derive(Debug)]
 pub struct Exception {
@@ -20,6 +24,10 @@ impl Exception {
 	    who,
 	    message,
 	}
+    }
+
+    pub fn get_who(&self) -> &Vec<String> {
+	&self.who
     }
 }
 

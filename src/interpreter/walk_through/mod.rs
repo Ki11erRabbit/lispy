@@ -2,6 +2,7 @@ use crate::parser::{File, Sexpr, Atom};
 use super::Exception;
 use super::context::Context;
 use super::value::{Value, Function, FunctionShape};
+use super::InterpreterResult;
 
 pub fn run(file: File, context: &mut Context) -> Result<(), Box<dyn std::error::Error>> {
 
@@ -19,7 +20,7 @@ pub fn run(file: File, context: &mut Context) -> Result<(), Box<dyn std::error::
 
 
 
-fn walk_through(sexpr: &Sexpr, context: &mut Context) -> Result<Option<Value>, Box<dyn std::error::Error>> {
+fn walk_through(sexpr: &Sexpr, context: &mut Context) -> InterpreterResult {
     match sexpr {
 	Sexpr::Atom(atom) => {
 	    match atom {
@@ -90,7 +91,7 @@ fn walk_through(sexpr: &Sexpr, context: &mut Context) -> Result<Option<Value>, B
     }
 }
 
-fn walk_through_list(list: &Vec<Sexpr>, context: &mut Context) -> Result<Option<Value>, Box<dyn std::error::Error>> {
+fn walk_through_list(list: &Vec<Sexpr>, context: &mut Context) -> InterpreterResult {
     if list.is_empty() {
 	return Ok(None);
     }
@@ -104,6 +105,8 @@ fn walk_through_list(list: &Vec<Sexpr>, context: &mut Context) -> Result<Option<
 	    "begin" => walk_through_begin(list, context),
 	    "import" => walk_through_import(list, context),
 	    "module" => walk_through_module(list, context),
+	    "try" => walk_through_try(list, context),
+	    "error" => walk_through_error(list, context),
 	    _ => walk_through_call(list, context),
 	}
     } else {
@@ -111,7 +114,7 @@ fn walk_through_list(list: &Vec<Sexpr>, context: &mut Context) -> Result<Option<
     }
 }
 
-fn walk_through_define(list: &Vec<Sexpr>, context: &mut Context) -> Result<Option<Value>, Box<dyn std::error::Error>> {
+fn walk_through_define(list: &Vec<Sexpr>, context: &mut Context) -> InterpreterResult {
     match list.as_slice() {
 	[_, Sexpr::Atom(Atom::Symbol(name)), value] => {
 	    let value = walk_through(value, context)?;
@@ -145,7 +148,7 @@ fn walk_through_define(list: &Vec<Sexpr>, context: &mut Context) -> Result<Optio
     }
 }
 
-fn walk_through_lambda(list: &Vec<Sexpr>, context: &mut Context) -> Result<Option<Value>, Box<dyn std::error::Error>> {
+fn walk_through_lambda(list: &Vec<Sexpr>, context: &mut Context) -> InterpreterResult {
     match list.as_slice() {
 	[_, Sexpr::List(header), body] => {
 	    let args = header.iter().map(|sexpr| match sexpr {
@@ -161,7 +164,7 @@ fn walk_through_lambda(list: &Vec<Sexpr>, context: &mut Context) -> Result<Optio
     }
 }
 
-fn walk_through_if(list: &Vec<Sexpr>, context: &mut Context) -> Result<Option<Value>, Box<dyn std::error::Error>> {
+fn walk_through_if(list: &Vec<Sexpr>, context: &mut Context) -> InterpreterResult {
     match list.as_slice() {
 	[_, condition, consequent, alternate] => {
 	    let condition = walk_through(condition, context)?;
@@ -180,7 +183,7 @@ fn walk_through_if(list: &Vec<Sexpr>, context: &mut Context) -> Result<Option<Va
     }
 }
 
-fn walk_through_set(list: &Vec<Sexpr>, context: &mut Context) -> Result<Option<Value>, Box<dyn std::error::Error>> {
+fn walk_through_set(list: &Vec<Sexpr>, context: &mut Context) -> InterpreterResult {
     match list.as_slice() {
 	[_, Sexpr::Atom(Atom::Symbol(name)), value] => {
 	    let value = walk_through(value, context)?;
@@ -198,7 +201,7 @@ fn walk_through_set(list: &Vec<Sexpr>, context: &mut Context) -> Result<Option<V
     }
 }
 
-fn walk_through_let(list: &Vec<Sexpr>, context: &mut Context) -> Result<Option<Value>, Box<dyn std::error::Error>> {
+fn walk_through_let(list: &Vec<Sexpr>, context: &mut Context) -> InterpreterResult {
     match list.as_slice() {
 	[_, Sexpr::List(bindings), body] => {
 	    context.push_frame(None);
@@ -231,7 +234,7 @@ fn walk_through_let(list: &Vec<Sexpr>, context: &mut Context) -> Result<Option<V
     }
 }
 
-fn walk_through_begin(list: &Vec<Sexpr>, context: &mut Context) -> Result<Option<Value>, Box<dyn std::error::Error>> {
+fn walk_through_begin(list: &Vec<Sexpr>, context: &mut Context) -> InterpreterResult {
     let mut output = None;
     for sexpr in list.iter().skip(1) {
 	output = walk_through(sexpr, context)?;
@@ -239,7 +242,7 @@ fn walk_through_begin(list: &Vec<Sexpr>, context: &mut Context) -> Result<Option
     Ok(output)
 }
 
-fn walk_through_import(list: &Vec<Sexpr>, context: &mut Context) -> Result<Option<Value>, Box<dyn std::error::Error>> {
+fn walk_through_import(list: &Vec<Sexpr>, context: &mut Context) -> InterpreterResult {
     match list.as_slice() {
 	[_, Sexpr::Atom(Atom::String(path))] => {
 	    todo!("import");
@@ -248,7 +251,7 @@ fn walk_through_import(list: &Vec<Sexpr>, context: &mut Context) -> Result<Optio
     }
 }
 
-fn walk_through_module(list: &Vec<Sexpr>, context: &mut Context) -> Result<Option<Value>, Box<dyn std::error::Error>> {
+fn walk_through_module(list: &Vec<Sexpr>, context: &mut Context) -> InterpreterResult {
     match list.as_slice() {
 	[_, Sexpr::Atom(Atom::String(ref path))] => {
 	    todo!("module");
@@ -257,7 +260,64 @@ fn walk_through_module(list: &Vec<Sexpr>, context: &mut Context) -> Result<Optio
     }
 }
 
-fn walk_through_call(list: &Vec<Sexpr>, context: &mut Context) -> Result<Option<Value>, Box<dyn std::error::Error>> {
+fn walk_through_try(list: &Vec<Sexpr>, context: &mut Context) -> InterpreterResult {
+    match list.as_slice() {
+	[_, body, handlers] => {
+	    let value = walk_through(body, context);
+	    match value {
+		Ok(value) => return Ok(value),
+		Err(e) => {
+		    let Sexpr::List(handlers) = handlers else {
+			return Err(Box::new(Exception::new(vec!["try".to_string()], "unusual syntax".to_string())));
+		    };
+		    for handler in handlers {
+			if let Sexpr::List(handler) = handler {
+			    if handler.len() != 2 {
+				return Err(Box::new(Exception::new(vec!["try".to_string()], "unusual syntax".to_string())));
+			    }
+			    let Sexpr::List(clause) = &handler[0] else {
+				return Err(Box::new(Exception::new(vec!["try".to_string()], "unusual syntax".to_string())));
+			    };
+			    let Sexpr::Atom(Atom::Symbol(keyword)) = &clause[0] else {
+				return Err(Box::new(Exception::new(vec!["try".to_string()], "unusual syntax".to_string())));
+			    };
+			    
+			    match keyword[0].as_str() {
+				"catch" => {},
+				_ => return Err(Box::new(Exception::new(vec!["try".to_string()], "unusual syntax".to_string()))),
+			    }
+			    let Sexpr::Atom(Atom::Symbol(who)) = &clause[1] else {
+				return Err(Box::new(Exception::new(vec!["try".to_string()], "unusual syntax".to_string())));
+			    };
+					
+			    match handler.as_slice() {
+				[_, body] => {
+				    if e.get_who() == who {
+					return walk_through(body, context);
+				    }
+				},
+				_ => return Err(Box::new(Exception::new(vec!["try".to_string()], "unusual syntax".to_string())))
+			    }
+			}
+		    }
+		    Err(e)
+		}
+	    }
+	}
+	_ => Err(Box::new(Exception::new(vec!["try".to_string()], "unusual syntax".to_string())))
+    }
+}
+
+fn walk_through_error(list: &Vec<Sexpr>, _: &mut Context) -> InterpreterResult {
+    match list.as_slice() {
+	[_, Sexpr::Atom(Atom::Symbol(who)), Sexpr::Atom(Atom::String(message))] => {
+	    Err(Box::new(Exception::new(who.clone(), message.clone())))
+	}
+	_ => Err(Box::new(Exception::new(vec!["error".to_string()], "unusual syntax".to_string()))),
+    }
+}
+
+fn walk_through_call(list: &Vec<Sexpr>, context: &mut Context) -> InterpreterResult {
     if let Sexpr::Atom(Atom::Symbol(name)) = &list[0] {
 	let function = match context.get(&name) {
 	    Some(f) => f.get_function()?.clone(),

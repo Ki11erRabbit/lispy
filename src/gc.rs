@@ -2,7 +2,6 @@ use std::sync::mpsc::TryRecvError;
 use std::sync::{Mutex, RwLock, Arc};
 use std::ptr::NonNull;
 use std::sync::atomic::{AtomicUsize, AtomicBool};
-use crate::interpreter::context::Context;
 use crate::interpreter::value::GcValue;
 
 static mut GC_ON: AtomicBool = AtomicBool::new(false);

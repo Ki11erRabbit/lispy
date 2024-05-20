@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use crate::interpreter::Exception;
+use crate::interpreter::HelperResult;
 
 use rug::Integer;
 
@@ -28,7 +29,7 @@ fn stdlib_plus_shape() -> FunctionShape {
     FunctionShape::new(vec!["x".to_string(), "y".to_string()])
 } 
 
-fn stdlib_plus(_: &mut Context, args: Vec<Value>, keyword_args: HashMap<String, Value>) -> Result<Value, Box<dyn std::error::Error>> {
+fn stdlib_plus(_: &mut Context, args: Vec<Value>, keyword_args: HashMap<String, Value>) -> HelperResult<Value> {
     let float_exists = check_for_floats(&args, &keyword_args);
 
     if float_exists {
@@ -86,7 +87,7 @@ fn stdlib_sub_shape() -> FunctionShape {
     FunctionShape::new(vec!["x".to_string(), "y".to_string()])
 } 
 
-fn stdlib_sub(_: &mut Context, args: Vec<Value>, keyword_args: HashMap<String, Value>) -> Result<Value, Box<dyn std::error::Error>> {
+fn stdlib_sub(_: &mut Context, args: Vec<Value>, keyword_args: HashMap<String, Value>) -> HelperResult<Value> {
     let float_exists = check_for_floats(&args, &keyword_args);
 
     if float_exists {
@@ -180,7 +181,7 @@ fn stdlib_mul_shape() -> FunctionShape {
     FunctionShape::new(vec!["x".to_string(), "y".to_string()])
 } 
 
-fn stdlib_mul(_: &mut Context, args: Vec<Value>, keyword_args: HashMap<String, Value>) -> Result<Value, Box<dyn std::error::Error>> {
+fn stdlib_mul(_: &mut Context, args: Vec<Value>, keyword_args: HashMap<String, Value>) -> HelperResult<Value> {
     let float_exists = check_for_floats(&args, &keyword_args);
 
     if float_exists {
@@ -238,7 +239,7 @@ fn stdlib_div_shape() -> FunctionShape {
     FunctionShape::new(vec!["x".to_string(), "y".to_string()])
 } 
 
-fn stdlib_div(_: &mut Context, args: Vec<Value>, keyword_args: HashMap<String, Value>) -> Result<Value, Box<dyn std::error::Error>> {
+fn stdlib_div(_: &mut Context, args: Vec<Value>, keyword_args: HashMap<String, Value>) -> HelperResult<Value> {
     let float_exists = check_for_floats(&args, &keyword_args);
 
     if float_exists {
@@ -350,7 +351,7 @@ fn stdlib_floor_div_shape() -> FunctionShape {
     FunctionShape::new(vec!["x".to_string(), "y".to_string()])
 } 
 
-fn stdlib_floor_div(_: &mut Context, args: Vec<Value>, keyword_args: HashMap<String, Value>) -> Result<Value, Box<dyn std::error::Error>> {
+fn stdlib_floor_div(_: &mut Context, args: Vec<Value>, keyword_args: HashMap<String, Value>) -> HelperResult<Value> {
     let float_exists = check_for_floats(&args, &keyword_args);
 
     if float_exists {
@@ -461,7 +462,7 @@ fn stdlib_floor_div(_: &mut Context, args: Vec<Value>, keyword_args: HashMap<Str
 
 macro_rules! numeric_equality_check {
     ($name:ident, $op:tt, $str:expr) => {
-fn $name(_: &mut Context, args: Vec<Value>, keyword_args: HashMap<String, Value>) -> Result<Value, Box<dyn std::error::Error>> {
+fn $name(_: &mut Context, args: Vec<Value>, keyword_args: HashMap<String, Value>) -> HelperResult<Value> {
     if args.len() == 2 {
 	if args[0].is_integer() && args[1].is_integer() {
 	    let x = args[0].get_integer()?;
@@ -582,7 +583,7 @@ fn stdlib_display_shape() -> FunctionShape {
     FunctionShape::new(vec!["str".to_string()])
 } 
 
-fn stdlib_display(_: &mut Context, args: Vec<Value>, keyword_args: HashMap<String, Value>) -> Result<Value, Box<dyn std::error::Error>> {
+fn stdlib_display(_: &mut Context, args: Vec<Value>, keyword_args: HashMap<String, Value>) -> HelperResult<Value> {
 
     if args.len() != 1 {
 	if keyword_args.get("str").unwrap().is_string() {
@@ -607,7 +608,7 @@ fn stdlib_or_shape() -> FunctionShape {
 	FunctionShape::new(vec!["x".to_string(), "y".to_string()])
 }
 
-fn stdlib_or(_: &mut Context, args: Vec<Value>, keyword_args: HashMap<String, Value>) -> Result<Value, Box<dyn std::error::Error>> {
+fn stdlib_or(_: &mut Context, args: Vec<Value>, keyword_args: HashMap<String, Value>) -> HelperResult<Value> {
     if args.len() == 2 {
 	if args[0].is_boolean() && args[1].is_boolean() {
 	    let x = args[0].get_boolean()?;
@@ -650,7 +651,7 @@ fn stdlib_and_shape() -> FunctionShape {
 	FunctionShape::new(vec!["x".to_string(), "y".to_string()])
 }
 
-fn stdlib_and(_: &mut Context, args: Vec<Value>, keyword_args: HashMap<String, Value>) -> Result<Value, Box<dyn std::error::Error>> {
+fn stdlib_and(_: &mut Context, args: Vec<Value>, keyword_args: HashMap<String, Value>) -> HelperResult<Value> {
     if args.len() == 2 {
 	if args[0].is_boolean() && args[1].is_boolean() {
 	    let x = args[0].get_boolean()?;
@@ -694,7 +695,7 @@ fn stdlib_not_shape() -> FunctionShape {
 	FunctionShape::new(vec!["x".to_string()])
 }
 
-fn stdlib_not(_: &mut Context, args: Vec<Value>, keyword_args: HashMap<String, Value>) -> Result<Value, Box<dyn std::error::Error>> {
+fn stdlib_not(_: &mut Context, args: Vec<Value>, keyword_args: HashMap<String, Value>) -> HelperResult<Value> {
     if args.len() == 1 {
 	if args[0].is_boolean() {
 	    let x = args[0].get_boolean()?;
@@ -717,7 +718,7 @@ fn stdlib_car_shape() -> FunctionShape {
 	FunctionShape::new(vec!["list".to_string()])
 }
 
-fn stdlib_car(_: &mut Context, args: Vec<Value>, keyword_args: HashMap<String, Value>) -> Result<Value, Box<dyn std::error::Error>> {
+fn stdlib_car(_: &mut Context, args: Vec<Value>, keyword_args: HashMap<String, Value>) -> HelperResult<Value> {
     if args.len() == 1 {
 	if args[0].is_pair() {
 	    let pair = args[0].get_pair()?;
@@ -742,7 +743,7 @@ fn stdlib_cdr_shape() -> FunctionShape {
 	FunctionShape::new(vec!["list".to_string()])
 }
 
-fn stdlib_cdr(_: &mut Context, args: Vec<Value>, keyword_args: HashMap<String, Value>) -> Result<Value, Box<dyn std::error::Error>> {
+fn stdlib_cdr(_: &mut Context, args: Vec<Value>, keyword_args: HashMap<String, Value>) -> HelperResult<Value> {
     if args.len() == 1 {
 	if args[0].is_pair() {
 	    let pair = args[0].get_pair()?;
@@ -767,7 +768,7 @@ fn stdlib_is_integer_shape() -> FunctionShape {
     FunctionShape::new(vec!["x".to_string()])
 }
 
-fn stdlib_is_integer(_: &mut Context, args: Vec<Value>, keyword_args: HashMap<String, Value>) -> Result<Value, Box<dyn std::error::Error>> {
+fn stdlib_is_integer(_: &mut Context, args: Vec<Value>, keyword_args: HashMap<String, Value>) -> HelperResult<Value> {
     if args.len() == 1 {
 	return Ok(Value::new_boolean(args[0].is_integer()));
     } else {
@@ -780,7 +781,7 @@ fn stdlib_is_float_shape() -> FunctionShape {
     FunctionShape::new(vec!["x".to_string()])
 }
 
-fn stdlib_is_float(_: &mut Context, args: Vec<Value>, keyword_args: HashMap<String, Value>) -> Result<Value, Box<dyn std::error::Error>> {
+fn stdlib_is_float(_: &mut Context, args: Vec<Value>, keyword_args: HashMap<String, Value>) -> HelperResult<Value> {
     if args.len() == 1 {
 	return Ok(Value::new_boolean(args[0].is_float()));
     } else {
@@ -793,7 +794,7 @@ fn stdlib_is_boolean_shape() -> FunctionShape {
     FunctionShape::new(vec!["x".to_string()])
 }
 
-fn stdlib_is_boolean(_: &mut Context, args: Vec<Value>, keyword_args: HashMap<String, Value>) -> Result<Value, Box<dyn std::error::Error>> {
+fn stdlib_is_boolean(_: &mut Context, args: Vec<Value>, keyword_args: HashMap<String, Value>) -> HelperResult<Value> {
     if args.len() == 1 {
 	return Ok(Value::new_boolean(args[0].is_boolean()));
     } else {
@@ -806,7 +807,7 @@ fn stdlib_is_symbol_shape() -> FunctionShape {
     FunctionShape::new(vec!["x".to_string()])
 }
 
-fn stdlib_is_symbol(_: &mut Context, args: Vec<Value>, keyword_args: HashMap<String, Value>) -> Result<Value, Box<dyn std::error::Error>> {
+fn stdlib_is_symbol(_: &mut Context, args: Vec<Value>, keyword_args: HashMap<String, Value>) -> HelperResult<Value> {
     if args.len() == 1 {
 	return Ok(Value::new_boolean(args[0].is_symbol()));
     } else {
@@ -819,7 +820,7 @@ fn stdlib_is_null_shape() -> FunctionShape {
     FunctionShape::new(vec!["x".to_string()])
 }
 
-fn stdlib_is_null(_: &mut Context, args: Vec<Value>, keyword_args: HashMap<String, Value>) -> Result<Value, Box<dyn std::error::Error>> {
+fn stdlib_is_null(_: &mut Context, args: Vec<Value>, keyword_args: HashMap<String, Value>) -> HelperResult<Value> {
     if args.len() == 1 {
 	return Ok(Value::new_boolean(args[0].is_nil()));
     } else {
@@ -832,7 +833,7 @@ fn stdlib_is_string_shape() -> FunctionShape {
     FunctionShape::new(vec!["x".to_string()])
 }
 
-fn stdlib_is_string(_: &mut Context, args: Vec<Value>, keyword_args: HashMap<String, Value>) -> Result<Value, Box<dyn std::error::Error>> {
+fn stdlib_is_string(_: &mut Context, args: Vec<Value>, keyword_args: HashMap<String, Value>) -> HelperResult<Value> {
     if args.len() == 1 {
 	return Ok(Value::new_boolean(args[0].is_string()));
     } else {
@@ -845,7 +846,7 @@ fn stdlib_is_procedure_shape() -> FunctionShape {
     FunctionShape::new(vec!["x".to_string()])
 }
 
-fn stdlib_is_procedure(_: &mut Context, args: Vec<Value>, keyword_args: HashMap<String, Value>) -> Result<Value, Box<dyn std::error::Error>> {
+fn stdlib_is_procedure(_: &mut Context, args: Vec<Value>, keyword_args: HashMap<String, Value>) -> HelperResult<Value> {
     if args.len() == 1 {
 	return Ok(Value::new_boolean(args[0].is_function()));
     } else {
@@ -858,7 +859,7 @@ fn stdlib_is_pair_shape() -> FunctionShape {
     FunctionShape::new(vec!["x".to_string()])
 }
 
-fn stdlib_is_pair(_: &mut Context, args: Vec<Value>, keyword_args: HashMap<String, Value>) -> Result<Value, Box<dyn std::error::Error>> {
+fn stdlib_is_pair(_: &mut Context, args: Vec<Value>, keyword_args: HashMap<String, Value>) -> HelperResult<Value> {
     if args.len() == 1 {
 	return Ok(Value::new_boolean(args[0].is_pair()));
     } else {
@@ -871,7 +872,7 @@ fn stdlib_is_vector_shape() -> FunctionShape {
     FunctionShape::new(vec!["x".to_string()])
 }
 
-fn stdlib_is_vector(_: &mut Context, args: Vec<Value>, keyword_args: HashMap<String, Value>) -> Result<Value, Box<dyn std::error::Error>> {
+fn stdlib_is_vector(_: &mut Context, args: Vec<Value>, keyword_args: HashMap<String, Value>) -> HelperResult<Value> {
     if args.len() == 1 {
 	return Ok(Value::new_boolean(args[0].is_vector()));
     } else {
@@ -886,7 +887,7 @@ fn stdlib_sleep_shape() -> FunctionShape {
     FunctionShape::new(vec!["seconds".to_string()])
 }
 
-fn stdlib_sleep(_: &mut Context, args: Vec<Value>, keyword_args: HashMap<String, Value>) -> Result<Value, Box<dyn std::error::Error>> {
+fn stdlib_sleep(_: &mut Context, args: Vec<Value>, keyword_args: HashMap<String, Value>) -> HelperResult<Value> {
     if args.len() == 1 {
     if args[0].is_integer() {
 	let x = args[0].get_integer()?;
@@ -911,7 +912,7 @@ fn stdlib_exit_shape() -> FunctionShape {
 	FunctionShape::new(vec!["code".to_string()])
 }
 
-fn stdlib_exit(_: &mut Context, args: Vec<Value>, keyword_args: HashMap<String, Value>) -> Result<Value, Box<dyn std::error::Error>> {
+fn stdlib_exit(_: &mut Context, args: Vec<Value>, keyword_args: HashMap<String, Value>) -> HelperResult<Value> {
     if args.len() == 1 {
 	if args[0].is_integer() {
 	    let x = args[0].get_integer()?;
