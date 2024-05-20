@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use crate::interpreter::Exception;
 
 use rug::Integer;
 
@@ -258,7 +259,7 @@ fn stdlib_div(_: &mut Context, args: Vec<Value>, keyword_args: HashMap<String, V
 		None => unreachable!(),
 	    };
 	    if part2 == 0.0 {
-		todo!("error");
+		return Err(Box::new(Exception::new(vec!["/".to_string()], "division by zero".to_string())));
 	    }
 	    part1 / part2
 	} else if args.len() == 2 {
@@ -273,7 +274,7 @@ fn stdlib_div(_: &mut Context, args: Vec<Value>, keyword_args: HashMap<String, V
 		args[1].get_integer()?.to_f64()
 	    };
 	    if part2 == 0.0 {
-		todo!("error");
+		return Err(Box::new(Exception::new(vec!["/".to_string()], "division by zero".to_string())));
 	    }
 	    part1 / part2
 	} else {
@@ -298,7 +299,7 @@ fn stdlib_div(_: &mut Context, args: Vec<Value>, keyword_args: HashMap<String, V
 		None => unreachable!(),
 	    };
 	    if part2 == 0.0 {
-		todo!("error");
+		return Err(Box::new(Exception::new(vec!["/".to_string()], "division by zero".to_string())));
 	    }
 	    part1 / part2
 	};
@@ -313,14 +314,14 @@ fn stdlib_div(_: &mut Context, args: Vec<Value>, keyword_args: HashMap<String, V
 		None => unreachable!(),
 	    };
 	    if part2.is_zero() {
-		todo!("error");
+		return Err(Box::new(Exception::new(vec!["/".to_string()], "division by zero".to_string())));
 	    }
 	    part1 / part2
 	} else if args.len() == 2 {
 	    let part1 = args[0].get_integer()?;
 	    let part2 = args[1].get_integer()?;
 	    if part2.is_zero() {
-		todo!("error");
+		return Err(Box::new(Exception::new(vec!["/".to_string()], "division by zero".to_string())));
 	    }
 	    part1 / part2
 	} else {
@@ -337,7 +338,7 @@ fn stdlib_div(_: &mut Context, args: Vec<Value>, keyword_args: HashMap<String, V
 		None => unreachable!(),
 	    };
 	    if part2.is_zero() {
-		todo!("error");
+		return Err(Box::new(Exception::new(vec!["/".to_string()], "division by zero".to_string())));
 	    }
 	    part1 / part2
 	};
@@ -346,7 +347,7 @@ fn stdlib_div(_: &mut Context, args: Vec<Value>, keyword_args: HashMap<String, V
 }
 
 macro_rules! numeric_equality_check {
-    ($name:ident, $op:tt) => {
+    ($name:ident, $op:tt, $str:expr) => {
 fn $name(_: &mut Context, args: Vec<Value>, keyword_args: HashMap<String, Value>) -> Result<Value, Box<dyn std::error::Error>> {
     if args.len() == 2 {
 	if args[0].is_integer() && args[1].is_integer() {
@@ -366,7 +367,7 @@ fn $name(_: &mut Context, args: Vec<Value>, keyword_args: HashMap<String, Value>
 	    let y = args[1].get_integer()?.to_f64();
 	    return Ok(Value::new_boolean(x $op y));
 	} else {
-	    todo!("error");
+	    return Err(Box::new(Exception::new(vec![$str.to_string()], "arguments must be numbers".to_string())));
 	}
     } else if args.len() == 1 {
 	if args[0].is_integer() {
@@ -378,11 +379,11 @@ fn $name(_: &mut Context, args: Vec<Value>, keyword_args: HashMap<String, Value>
 		    } else if value.is_float() {
 			return Ok(Value::new_boolean(x.to_f64() $op value.get_float()?));
 		    } else {
-			todo!("error");
+			return Err(Box::new(Exception::new(vec![$str.to_string()], "arguments mus be numbers".to_string())));
 		    }
 		}
 		None => {
-		    todo!("error");
+		    return Err(Box::new(Exception::new(vec![$str.to_string()], "missing argument y".to_string())));
 		}
 	    }
 	} else if args[0].is_float() {
@@ -394,16 +395,16 @@ fn $name(_: &mut Context, args: Vec<Value>, keyword_args: HashMap<String, Value>
 		    } else if value.is_float() {
 			return Ok(Value::new_boolean(x $op value.get_float()?));
 		    } else {
-			todo!("error");
+			return Err(Box::new(Exception::new(vec![$str.to_string()], "arguments must be numbers".to_string())));
 		    }
 		}
 		None => {
-		    todo!("error");
+		    return Err(Box::new(Exception::new(vec![$str.to_string()], "missing argument y".to_string())));
 		}
 	    }
 	} else {
-	    let x = keyword_args.get("x").unwrap();
-	    let y = keyword_args.get("y").unwrap();
+	    let x = keyword_args.get("x").ok_or(Box::new(Exception::new(vec![$str.to_string()], "missing argument x".to_string())))?;
+	    let y = keyword_args.get("y").ok_or(Box::new(Exception::new(vec![$str.to_string()], "missing argument y".to_string())))?;
 	    if x.is_integer() && y.is_integer() {
 		let x = x.get_integer()?;
 		let y = y.get_integer()?;
@@ -421,12 +422,12 @@ fn $name(_: &mut Context, args: Vec<Value>, keyword_args: HashMap<String, Value>
 		let y = y.get_integer()?.to_f64();
 		return Ok(Value::new_boolean(x $op y));
 	    } else {
-		todo!("error");
+		return Err(Box::new(Exception::new(vec![$str.to_string()], "arguments must be numbers".to_string())));
 	    }
 	}
 
     }
-    todo!("error");
+    Err(Box::new(Exception::new(vec![$str.to_string()], "wrong number of arguments".to_string())))
 	
 }
     }
@@ -436,31 +437,31 @@ fn stdlib_greater_than_shape() -> FunctionShape {
 	FunctionShape::new(vec!["x".to_string(), "y".to_string()])
 }
 
-numeric_equality_check!(stdlib_greater_than, >);
+numeric_equality_check!(stdlib_greater_than, >, ">");
 
 fn stdlib_less_than_shape() -> FunctionShape {
 	FunctionShape::new(vec!["x".to_string(), "y".to_string()])
 }
 
-numeric_equality_check!(stdlib_less_than, <);
+numeric_equality_check!(stdlib_less_than, <, "<");
 
 fn stdlib_greater_than_or_equal_shape() -> FunctionShape {
 	FunctionShape::new(vec!["x".to_string(), "y".to_string()])
 }
 
-numeric_equality_check!(stdlib_greater_than_or_equal, >=);
+numeric_equality_check!(stdlib_greater_than_or_equal, >=, ">=");
 
 fn stdlib_less_than_or_equal_shape() -> FunctionShape {
 	FunctionShape::new(vec!["x".to_string(), "y".to_string()])
 }
 
-numeric_equality_check!(stdlib_less_than_or_equal, <=);
+numeric_equality_check!(stdlib_less_than_or_equal, <=, "<=");
 
 fn stdlib_equal_to_shape() -> FunctionShape {
 	FunctionShape::new(vec!["x".to_string(), "y".to_string()])
 }
 
-numeric_equality_check!(stdlib_equal, ==);
+numeric_equality_check!(stdlib_equal, ==, "=");
 
 
 
@@ -475,14 +476,14 @@ fn stdlib_display(_: &mut Context, args: Vec<Value>, keyword_args: HashMap<Strin
 	    let string = keyword_args.get("str").unwrap().get_string()?;
 	    print!("{}", string);
 	} else {
-	    todo!("error");
+	    return Err(Box::new(Exception::new(vec!["display".to_string()], "argument must be a string".to_string())));
 	}
     } else {
 	if args[0].is_string() {
 	    let string = args[0].get_string()?;
 	    print!("{}", string);
 	} else {
-	    todo!("error");
+	    return Err(Box::new(Exception::new(vec!["display".to_string()], "argument must be a string".to_string())));
 	}
     }
 
