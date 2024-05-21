@@ -8,6 +8,9 @@
    
 (test.test)
 
+(thread.spawn (lambda () (display "thread\n")))
+(sleep 5)
+
 (define l '(1 2 3 4))
 
 (define x 10)

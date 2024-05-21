@@ -1,11 +1,13 @@
 use rug::Integer;
 use std::collections::HashMap;
+use std::any::Any;
+use crate::parser::Atom;
 use crate::parser::Sexpr;
-use crate::interpreter::HelperResult;
+use crate::interpreter::{self, HelperResult};
 
 use crate::gc::Gc;
 
-use super::{context::{ContextFrame, Context}, Exception};
+use super::{context::{ContextFrame, Context}, Exception, InterpreterResult};
 
 
 pub struct Nil;
@@ -270,6 +272,37 @@ impl Value {
 	}
     }
 
+    pub fn new_rust_value(r: Box<dyn Any>, context: &Context) -> Self {
+	let gc_object = Gc::new(GcValue::RustValue(r));
+	context.send_gc(gc_object.clone());
+	Value {
+	    raw: RawValue::Gc(gc_object),
+	}
+    }
+    pub fn is_rust_value(&self) -> bool {
+	match self.raw {
+	    RawValue::Gc(ref r) => {
+		match r.get() {
+		    GcValue::RustValue(_) => true,
+		    _ => false,
+		}
+	    },
+	    _ => false,
+	}
+    }
+    pub fn get_rust_value(&self, context: &Context) -> HelperResult<&Box<dyn Any>> {
+	let empty: Vec<&str> = Vec::new();
+	match self.raw {
+	    RawValue::Gc(ref gc) => {
+		match gc.get() {
+		    GcValue::RustValue(r) => Ok(r),
+		    _ => Err(Box::new(Exception::new(&empty, "not a rust value", context))),
+		}
+	    }
+	    _ => Err(Box::new(Exception::new(&empty, "not a rust value", context))),
+	}
+    }
+
     pub fn new_nil() -> Self {
 	Value {
 	    raw: RawValue::Nil,
@@ -340,6 +373,15 @@ impl Value {
 	    _ => {},
 	}
     }
+
+    pub fn protect(&self) {
+	match &self.raw {
+	    RawValue::Gc(gc) => {
+		gc.protect()
+	    }
+	    _ => {}
+	}
+    }
     
 }
 
@@ -398,6 +440,7 @@ pub enum GcValue {
     Pair((Box<Value>, Box<Value>)),
     Vector(Vec<Value>),
     Symbol(Vec<String>),
+    RustValue(Box<dyn Any>),
 }
 
 impl std::fmt::Display for GcValue {
@@ -431,6 +474,9 @@ impl std::fmt::Display for GcValue {
 	    GcValue::Symbol(s) => {
 		write!(f, "'{}", s.join("."))
 	    },
+	    GcValue::RustValue(_) => {
+	 	write!(f, "<rust value>")
+	    },
 	}
     }
 }
@@ -445,6 +491,105 @@ impl std::fmt::Debug for GcValue {
 pub enum Function {
     Tree(Vec<String>, Sexpr, ContextFrame, FunctionShape),
     Native(fn(&mut Context, Vec<Value>, HashMap<String, Value>) -> HelperResult<Value>, FunctionShape),
+}
+
+impl Function {
+    pub fn protect(&self) {
+	match self {
+	    Function::Tree(_, _, frame, _) => {
+		frame.protect();
+	    },
+	    _ => {},
+	}
+    }
+    
+    pub fn call(&self, name: &Vec<String>, list:&Vec<Sexpr>, context: &mut Context) -> InterpreterResult {
+	match self {
+	    Function::Tree(fun_args, body, frame, shape) => {
+		let mut args = Vec::new();
+		let mut keyword_args = std::collections::HashMap::new();
+		let mut iterator = list.iter().skip(1);
+		while let Some(sexpr) = iterator.next() {
+		    match sexpr {
+			Sexpr::Atom(Atom::Keyword(k)) => {
+			    if let Some(value) = iterator.next() {
+				match interpreter::walk_through::walk_through(value, context)? {
+				    Some(value) => {
+					keyword_args.insert(k.clone(), value);
+				    }
+				    None => {
+					return Err(Box::new(Exception::new(&name, "expression didn't result in a value", context)));
+				    }
+				}
+			    } else {
+				return Err(Box::new(Exception::new(&name, "unusual syntax", context)));
+			    }
+			}
+			s => {
+			    match interpreter::walk_through::walk_through(s, context)? {
+				Some(value) => {
+				    args.push(value);
+				}
+				None => {
+				    return Err(Box::new(Exception::new(&name, "expression didn't result in a value", context)));
+				}
+			    }
+			}
+		    }
+		}
+
+		shape.check(&name, &args, &keyword_args, context)?;
+
+		context.push_frame(Some(frame.clone()));
+
+		for (arg, value) in fun_args.iter().zip(args.iter()) {
+		    context.define(arg, value.clone());
+		}
+		for (arg, value) in keyword_args.iter() {
+		    context.define(arg, value.clone());
+		}
+
+		let value = interpreter::walk_through::walk_through(&body, context);
+		context.pop_frame();
+		value
+	    },
+	    Function::Native(f, shape) => {
+		let mut args = Vec::new();
+		let mut keyword_args = std::collections::HashMap::new();
+		let mut iterator = list.iter().skip(1);
+		while let Some(sexpr) = iterator.next() {
+		    match sexpr {
+			Sexpr::Atom(Atom::Keyword(k)) => {
+			    if let Some(value) = iterator.next() {
+				match interpreter::walk_through::walk_through(value, context)? {
+				    Some(value) => {
+					keyword_args.insert(k.clone(), value);
+				    }
+				    None => {
+					return Err(Box::new(Exception::new(&name, "expression didn't result in a value", context)));
+				    }
+				}
+			    } else {
+				return Err(Box::new(Exception::new(&name, "unusual syntax", context)));
+			    }
+			}
+			s => {
+			    match interpreter::walk_through::walk_through(s, context)? {
+				Some(value) => {
+				    args.push(value);
+				}
+				None => {
+				    return Err(Box::new(Exception::new(&name, "expression didn't result in a value", context)));
+				}
+			    }
+			}
+		    }
+		}
+		shape.check(&name, &args, &keyword_args, context)?;
+		Ok(Some(f(context, args, keyword_args)?))
+	    }
+	}
+    }
 }
 
 #[derive(Clone)]

@@ -19,6 +19,15 @@ impl Module {
 	}
     }
 
+    pub fn new_loaded(submodules: HashMap<String, Module>, frame: ContextFrame) -> Self {
+	Module {
+	    raw_module: RefCell::new(RawModule::Loaded {
+		submodules: Arc::new(submodules),
+		frame: Arc::new(frame),
+	    }),
+	}
+    }
+
     pub fn new_from_context(mut context: Context) -> Self {
 	Module {
 	    raw_module: RefCell::new(RawModule::Loaded {

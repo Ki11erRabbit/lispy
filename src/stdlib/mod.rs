@@ -1,3 +1,6 @@
+
+pub mod thread;
+
 use std::collections::HashMap;
 use crate::interpreter::Exception;
 use crate::interpreter::HelperResult;

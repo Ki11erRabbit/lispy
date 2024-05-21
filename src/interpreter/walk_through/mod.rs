@@ -25,7 +25,7 @@ pub fn run(file: File, context: &mut Context) -> Result<(), Box<dyn std::error::
 
 
 
-fn walk_through(sexpr: &Sexpr, context: &mut Context) -> InterpreterResult {
+pub fn walk_through(sexpr: &Sexpr, context: &mut Context) -> InterpreterResult {
     match sexpr {
 	Sexpr::Atom(atom) => {
 	    match atom {
@@ -369,93 +369,8 @@ fn walk_through_call(list: &Vec<Sexpr>, context: &mut Context) -> InterpreterRes
 	    None => return Err(Box::new(Exception::new(&name, "not bound", context)))
 	};
 
-	match function {
-	    Function::Tree(fun_args, body, frame, shape) => {
-		let mut args = Vec::new();
-		let mut keyword_args = std::collections::HashMap::new();
-		let mut iterator = list.iter().skip(1);
-		while let Some(sexpr) = iterator.next() {
-		    match sexpr {
-			Sexpr::Atom(Atom::Keyword(k)) => {
-			    if let Some(value) = iterator.next() {
-				match walk_through(value, context)? {
-				    Some(value) => {
-					keyword_args.insert(k.clone(), value);
-				    }
-				    None => {
-					return Err(Box::new(Exception::new(&name, "expression didn't result in a value", context)));
-				    }
-				}
-			    } else {
-				return Err(Box::new(Exception::new(&name, "unusual syntax", context)));
-			    }
-			}
-			s => {
-			    match walk_through(s, context)? {
-				Some(value) => {
-				    args.push(value);
-				}
-				None => {
-				    return Err(Box::new(Exception::new(&name, "expression didn't result in a value", context)));
-				}
-			    }
-			}
-		    }
-		}
+	function.call(&name, list, context)
 
-		shape.check(&name, &args, &keyword_args, context)?;
-
-		context.push_frame(Some(frame.clone()));
-
-		for (arg, value) in fun_args.iter().zip(args.iter()) {
-		    context.define(arg, value.clone());
-		}
-		for (arg, value) in keyword_args.iter() {
-		    context.define(arg, value.clone());
-		}
-		
-		let value = walk_through(&body, context);
-		context.pop_frame();
-		value
-	    },
-	    Function::Native(f, shape) => {
-		let mut args = Vec::new();
-		let mut keyword_args = std::collections::HashMap::new();
-		let mut iterator = list.iter().skip(1);
-		while let Some(sexpr) = iterator.next() {
-		    match sexpr {
-			Sexpr::Atom(Atom::Keyword(k)) => {
-			    if let Some(value) = iterator.next() {
-				match walk_through(value, context)? {
-				    Some(value) => {
-					keyword_args.insert(k.clone(), value);
-				    }
-				    None => {
-					return Err(Box::new(Exception::new(&name, "expression didn't result in a value", context)));
-				    }
-				}
-			    } else {
-				return Err(Box::new(Exception::new(&name, "unusual syntax", context)));
-			    }
-			}
-			s => {
-			    match walk_through(s, context)? {
-				Some(value) => {
-				    args.push(value);
-				}
-				None => {
-				    return Err(Box::new(Exception::new(&name, "expression didn't result in a value", context)));
-				}
-			    }
-			}
-		    }
-		}
-
-		shape.check(&name, &args, &keyword_args, context)?;
-		
-		Ok(Some(f(context, args, keyword_args)?))
-	    }
-	}
     } else {
 	let empty: Vec<&str> = Vec::new();
 	Err(Box::new(Exception::new(&empty, "unreachable", context)))

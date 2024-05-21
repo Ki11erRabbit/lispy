@@ -41,7 +41,12 @@ impl ContextFrame {
 	    value.unmark();
 	}
     }
-    
+
+    pub fn protect(&self) {
+	for (_, value) in self.bindings.iter() {
+	    value.protect();
+	}
+    }
 }
 
 pub struct Context {
@@ -61,6 +66,9 @@ impl Context {
 	};
 	let stdlib = get_stdlib(&mut ctx);
 	ctx.frames.push(stdlib);
+
+	let thread = crate::stdlib::thread::get_thread_library(&mut ctx);
+	ctx.add_module("thread", thread);
 	ctx
     }
 
@@ -78,6 +86,10 @@ impl Context {
     pub fn copy_frame(&mut self) -> ContextFrame {
 	let frame = self.frames.last().unwrap().clone();
 	frame
+    }
+
+    pub fn copy_frame_at(&self, pos: usize) -> ContextFrame {
+	self.frames[pos].clone()
     }
 
     fn get_from_frame(&self, name: &str) -> Option<&Value> {
@@ -153,6 +165,9 @@ impl Context {
     }
 	
 }
+
+unsafe impl Send for Context {}
+unsafe impl Sync for Context {}
 
 impl Clone for Context {
     fn clone(&self) -> Self {
