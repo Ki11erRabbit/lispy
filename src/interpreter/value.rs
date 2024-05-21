@@ -429,7 +429,7 @@ impl std::fmt::Display for GcValue {
 		write!(f, "#({})", v.iter().map(|v| format!("{}", v)).collect::<Vec<String>>().join(" "))
 	    },
 	    GcValue::Symbol(s) => {
-		write!(f, "{}", s.join("."))
+		write!(f, "'{}", s.join("."))
 	    },
 	}
     }

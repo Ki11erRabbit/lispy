@@ -7,8 +7,13 @@ use super::InterpreterResult;
 pub fn run(file: File, context: &mut Context) -> Result<(), Box<dyn std::error::Error>> {
 
     for sexpr in file {
-	walk_through(&sexpr, context)?;
-	//println!("{:?}", value);
+	match walk_through(&sexpr, context) {
+	    Err(e) => {
+		println!("{}", e);
+		break;
+	    }
+	    _ => {},
+	}
 	if crate::gc::is_gc_on() {
 	    context.garbage_collect();
 	}

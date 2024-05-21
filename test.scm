@@ -33,3 +33,5 @@
 
 (try (error 'test "error") ([(catch 'test)
    (display "caught error\n")]))
+
+(/ 1 0)

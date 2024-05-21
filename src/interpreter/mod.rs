@@ -40,6 +40,6 @@ impl Error for Exception {}
 
 impl std::fmt::Display for Exception {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-	write!(f, "Error: {} {}", self.who, self.message)
+	write!(f, "Error: {}: {}", self.who, self.message)
     }
 }
