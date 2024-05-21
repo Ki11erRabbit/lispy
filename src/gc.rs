@@ -1,6 +1,7 @@
 use std::sync::mpsc::TryRecvError;
 use std::sync::{Mutex, RwLock, Arc};
 use std::ptr::NonNull;
+use std::cell::UnsafeCell;
 use std::sync::atomic::{AtomicUsize, AtomicBool};
 use crate::interpreter::value::GcValue;
 
@@ -37,7 +38,7 @@ struct GcBox<T: ?Sized> {
     value: T,
 }
 
-pub enum Gc<T: ?Sized> {
+enum RawGc<T: ?Sized> {
     Normal {
 	marked: NonNull<Mutex<Mark>>,
 	ptr: NonNull<GcBox<T>>,
@@ -48,24 +49,26 @@ pub enum Gc<T: ?Sized> {
     },
 }
 
+pub struct Gc<T: ?Sized> {
+	raw: UnsafeCell<RawGc<T>>,
+}
 
 impl<T> Gc<T> {
     pub fn new(value: T) -> Self {
-	let gc = Gc::Normal {
+	let gc = RawGc::Normal {
 	    marked: NonNull::new(Box::into_raw(Box::new(Mutex::new(Mark::White)))).unwrap(),
 	    ptr: NonNull::new(Box::into_raw(Box::new(GcBox { count: 1.into(), value }))).unwrap(),
 	};
-	gc
-    }
+	Gc { raw: UnsafeCell::new(gc) } }
 }
 
 impl<T: ?Sized> Gc<T> {
 
     pub fn mark(&self) {
 	let mut current = unsafe {
-	    match self {
-		Gc::Normal { marked, .. } => marked.as_ref().lock().unwrap(),
-		Gc::Protected { marked, .. } => marked.as_ref().lock().unwrap(),
+	    match *self.raw.get() {
+		RawGc::Normal { marked, .. } => marked.as_ref().lock().unwrap(),
+		RawGc::Protected { marked, .. } => marked.as_ref().lock().unwrap(),
 	    }
 	};
 	match *current {
@@ -77,9 +80,9 @@ impl<T: ?Sized> Gc<T> {
 
     pub fn unmark(&self) {
 	unsafe {
-	    match self {
-		Gc::Normal { marked, .. } => *marked.as_ref().lock().unwrap() = Mark::White,
-		Gc::Protected { marked, .. } => *marked.as_ref().lock().unwrap() = Mark::White,
+	    match *self.raw.get() {
+		RawGc::Normal { marked, .. } => *marked.as_ref().lock().unwrap() = Mark::White,
+		RawGc::Protected { marked, .. } => *marked.as_ref().lock().unwrap() = Mark::White,
 	    }
 	}
     }
@@ -87,44 +90,42 @@ impl<T: ?Sized> Gc<T> {
 
     pub fn marked(&self) -> Mark {
 	unsafe {
-	    match self {
-		Gc::Normal { marked, .. } => *marked.as_ref().lock().unwrap(),
-		Gc::Protected { marked, .. } => *marked.as_ref().lock().unwrap(),
+	    match *self.raw.get() {
+		RawGc::Normal { marked, .. } => *marked.as_ref().lock().unwrap(),
+		RawGc::Protected { marked, .. } => *marked.as_ref().lock().unwrap(),
 	    }
 	}
     }
 
     pub fn get(&self) -> &T {
 	unsafe {
-	    match self {
-		Gc::Normal { ptr, .. } => &ptr.as_ref().value,
-		Gc::Protected { ptr, .. } => &ptr.lock().unwrap().as_mut().value,
+	    match std::ptr::read(self.raw.get()) {
+		RawGc::Normal { ptr, .. } => &ptr.as_ref().value,
+		RawGc::Protected { ptr, .. } => &ptr.lock().unwrap().as_mut().value,
 	    }
 	}
     }
 
     pub fn get_mut(&mut self) -> &mut T {
 	unsafe {
-	    match self {
-		Gc::Normal { ptr, .. } => &mut ptr.as_mut().value,
-		Gc::Protected { ptr, .. } => &mut ptr.lock().unwrap().as_mut().value,
+	    match std::ptr::read(self.raw.get()) {
+		RawGc::Normal { ref mut ptr, .. } => &mut ptr.as_mut().value,
+		RawGc::Protected { ptr, .. } => &mut ptr.lock().unwrap().as_mut().value,
 	    }
 	}
     }
 
     pub fn protect(&self) {
 	unsafe {
-	    // TODO: Change to use UnsafeCell
-	    #[allow(mutable_transmutes)]
-	    let this = std::mem::transmute::<&Gc<T>, &mut Gc<T>>(self);
-	    match self {
-		Gc::Normal { marked, ptr } => {
-		    *this = Gc::Protected {
+	    let raw = self.raw.get();
+	    match *raw {
+		RawGc::Normal { ref marked, ref ptr } => {
+		    *raw = RawGc::Protected {
 			ptr: Mutex::new(*ptr),
 			marked: *marked,
 		    };
 		},
-		Gc::Protected { .. } => {},
+		RawGc::Protected { .. } => {},
 	    }
 	}
     }
@@ -136,23 +137,23 @@ unsafe impl<T> Sync for Gc<T> {}
 impl<T> Clone for Gc<T> {
     fn clone(&self) -> Self {
 	unsafe {
-	    match self {
-		Gc::Normal { ptr, marked } => {
+	    match *self.raw.get() {
+		RawGc::Normal { ref ptr, ref marked } => {
 		    let ptr_ref = ptr.as_ref();
 		    ptr_ref.count.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-		    Gc::Normal {
+		    Gc { raw: UnsafeCell::new(RawGc::Normal {
 			ptr: *ptr,
 			marked: *marked,
-		    }
+		    }) }
 		},
-		Gc::Protected { ptr, marked } => {
+		RawGc::Protected { ref ptr, ref marked } => {
 		    let ptr_ref = ptr.lock().unwrap();
 		    ptr_ref.as_ref().count.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
 
-		    Gc::Protected {
+		    Gc { raw: UnsafeCell::new(RawGc::Protected {
 			ptr: std::ptr::read(ptr),
 			marked: *marked,
-		    }
+		    }) }
 		},
 	    }
 	}
@@ -162,15 +163,15 @@ impl<T> Clone for Gc<T> {
 impl<T: ?Sized> Drop for Gc<T> {
     fn drop(&mut self) {
 	unsafe {
-	    match self {
-		Gc::Normal { ptr, .. } => {
+	    match std::ptr::read(self.raw.get()) {
+		RawGc::Normal { ptr, .. } => {
 		    let ptr_ref = ptr.as_ref();
 		    ptr_ref.count.fetch_sub(1, std::sync::atomic::Ordering::Relaxed);
 		    if ptr_ref.count.load(std::sync::atomic::Ordering::Relaxed) == 0 {
 			drop(Box::from_raw(ptr.as_ptr()));
 		    }
 		},
-		Gc::Protected { ptr, .. } => {
+		RawGc::Protected { ptr, .. } => {
 		    let ptr_ref = ptr.lock().unwrap();
 		    ptr_ref.as_ref().count.fetch_sub(1, std::sync::atomic::Ordering::Relaxed);
 		    if ptr_ref.as_ref().count.load(std::sync::atomic::Ordering::Relaxed) == 0 {
