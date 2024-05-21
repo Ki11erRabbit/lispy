@@ -1,6 +1,7 @@
 
 pub mod thread;
 
+use std::io::Write;
 use std::collections::HashMap;
 use crate::interpreter::Exception;
 use crate::interpreter::HelperResult;
@@ -592,6 +593,7 @@ fn stdlib_display(context: &mut Context, args: Vec<Value>, keyword_args: HashMap
 	if keyword_args.get("str").unwrap().is_string() {
 	    let string = keyword_args.get("str").unwrap().get_string(context)?;
 	    print!("{}", string);
+        std::io::stdout().flush().unwrap();
 	} else {
 	    return Err(Box::new(Exception::new(&vec!["display"], "argument must be a string", context)));
 	}
@@ -599,6 +601,7 @@ fn stdlib_display(context: &mut Context, args: Vec<Value>, keyword_args: HashMap
 	if args[0].is_string() {
 	    let string = args[0].get_string(context)?;
 	    print!("{}", string);
+        std::io::stdout().flush().unwrap();
 	} else {
 	    return Err(Box::new(Exception::new(&vec!["display"], "argument must be a string", context)));
 	}

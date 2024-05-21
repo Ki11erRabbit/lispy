@@ -27,7 +27,8 @@ impl ContextFrame {
     }
 
     pub fn get(&self, name: &str) -> Option<&Value> {
-	self.bindings.get(name)
+	    let value = self.bindings.get(name);// this blocks the thread
+        value
     }
 
     pub fn mark(&self) {
@@ -93,24 +94,25 @@ impl Context {
     }
 
     fn get_from_frame(&self, name: &str) -> Option<&Value> {
-	for frame in self.frames.iter().rev() {
-	    if let Some(value) = frame.bindings.get(name) {
-		return Some(value);
-	    }
-	}
-	None
+        for frame in self.frames.iter().rev() {
+            if let Some(value) = frame.get(name) {
+                return Some(value);
+            }
+        }
+    	None
     }
     
 
     pub fn get(&self, name: &Vec<String>) -> Option<Value> {
-	if name.len() == 1 {
-	    return self.get_from_frame(&name[0]).cloned();
-	}
-	if let Some(module) = self.modules.borrow_mut().get_mut(&name[0]) {
-	    module.get(&name.as_slice()[1..], self)
-	} else {
-	    None
-	}
+        if name.len() == 1 {
+            let value = self.get_from_frame(&name[0]);
+            return value.cloned();
+        }
+        if let Some(module) = self.modules.borrow_mut().get_mut(&name[0]) {
+            module.get(&name.as_slice()[1..], self)
+        } else {
+            None
+        }
     }
 
     pub fn define(&mut self, name: &str, value: Value) {

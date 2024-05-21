@@ -537,9 +537,8 @@ impl Function {
 			}
 		    }
 		}
-
 		shape.check(&name, &args, &keyword_args, context)?;
-
+        
 		context.push_frame(Some(frame.clone()));
 
 		for (arg, value) in fun_args.iter().zip(args.iter()) {
@@ -548,7 +547,7 @@ impl Function {
 		for (arg, value) in keyword_args.iter() {
 		    context.define(arg, value.clone());
 		}
-
+        
 		let value = interpreter::walk_through::walk_through(&body, context);
 		context.pop_frame();
 		value

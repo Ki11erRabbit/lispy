@@ -27,102 +27,102 @@ pub fn run(file: File, context: &mut Context) -> Result<(), Box<dyn std::error::
 
 pub fn walk_through(sexpr: &Sexpr, context: &mut Context) -> InterpreterResult {
     match sexpr {
-	Sexpr::Atom(atom) => {
-	    match atom {
-		Atom::String(s) => {
-		    Ok(Some(Value::new_string(s, context)))
-		}
-		Atom::Integer(i) => {
-		    Ok(Some(Value::new_integer(&i)))
-		}
-		Atom::Float(f) => {
-		    Ok(Some(Value::new_float(*f)))
-		}
-		Atom::Boolean(b) => {
-		    Ok(Some(Value::new_boolean(*b)))
-		}
-		Atom::Symbol(s) => {
-		    match context.get(&s) {
-			Some(value) => Ok(Some(value.clone())),
-			None => Err(Box::new(Exception::new(s, "not bound", context))),
-		    }
-		}
-		Atom::QuotedSymbol(s) => {
-		    Ok(Some(Value::new_symbol(s.clone(), context)))
-		}
-		Atom::Keyword(_) => {
-		    let empty: Vec<&str> = Vec::new();
-		    Err(Box::new(Exception::new(&empty, "keyword not allowed here", context)))
-		}
-		Atom::Char(c) => {
-		    Ok(Some(Value::new_char(*c)))
-		}
-		Atom::Null => {
-		    Ok(Some(Value::new_nil()))
-		}
-	    }
-	},
-	Sexpr::QuotedList(list) => {
-	    let mut output = Vec::new();
-	    for sexpr in list {
-		match walk_through(sexpr, context)? {
-		    Some(value) => {
-			output.push(value);
-		    }
-		    None => {
-			let empty: Vec<&str> = Vec::new();
-			return Err(Box::new(Exception::new(&empty, "expression didn't result in a value", context)));
-		    }
-		}
-	    }
-	    let mut pair = Value::new_pair(output.pop().unwrap(), Value::new_nil(), context);
-	    for value in output.iter().rev() {
-		pair = Value::new_pair(value.clone(), pair, context);
-	    }
-	    Ok(Some(pair))
-	},
-	Sexpr::VectorList(list) => {
-	    let mut output = Vec::new();
-	    for sexpr in list {
-		match walk_through(sexpr, context)? {
-		    Some(value) => {
-			output.push(value);
-		    }
-		    None => {
-			let empty: Vec<&str> = Vec::new();
-			return Err(Box::new(Exception::new(&empty, "expression didn't result in a value", context)));
-		    }
-		}
-	    }
-	    Ok(Some(Value::new_vector(output, context)))
-	}
-	Sexpr::List(list) => {
-	    walk_through_list(list, context)
-	}
+        Sexpr::Atom(atom) => {
+            match atom {
+                Atom::String(s) => {
+                    Ok(Some(Value::new_string(s, context)))
+                }
+                Atom::Integer(i) => {
+                    Ok(Some(Value::new_integer(&i)))
+                }
+                Atom::Float(f) => {
+                    Ok(Some(Value::new_float(*f)))
+                }
+                Atom::Boolean(b) => {
+                    Ok(Some(Value::new_boolean(*b)))
+                }
+                Atom::Symbol(s) => {
+                    match context.get(&s) {
+                        Some(value) => Ok(Some(value.clone())),
+                        None => Err(Box::new(Exception::new(s, "not bound", context))),
+                    }
+                }
+                Atom::QuotedSymbol(s) => {
+                    Ok(Some(Value::new_symbol(s.clone(), context)))
+                }
+                Atom::Keyword(_) => {
+                    let empty: Vec<&str> = Vec::new();
+                    Err(Box::new(Exception::new(&empty, "keyword not allowed here", context)))
+                }
+                Atom::Char(c) => {
+                    Ok(Some(Value::new_char(*c)))
+                }
+                Atom::Null => {
+                    Ok(Some(Value::new_nil()))
+                }
+            }
+        },
+        Sexpr::QuotedList(list) => {
+            let mut output = Vec::new();
+            for sexpr in list {
+            match walk_through(sexpr, context)? {
+                Some(value) => {
+                    output.push(value);
+                }
+                None => {
+                    let empty: Vec<&str> = Vec::new();
+                    return Err(Box::new(Exception::new(&empty, "expression didn't result in a value", context)));
+                }
+            }
+            }
+            let mut pair = Value::new_pair(output.pop().unwrap(), Value::new_nil(), context);
+            for value in output.iter().rev() {
+                pair = Value::new_pair(value.clone(), pair, context);
+            }
+            Ok(Some(pair))
+        },
+        Sexpr::VectorList(list) => {
+            let mut output = Vec::new();
+            for sexpr in list {
+                match walk_through(sexpr, context)? {
+                    Some(value) => {
+                        output.push(value);
+                    }
+                    None => {
+                        let empty: Vec<&str> = Vec::new();
+                        return Err(Box::new(Exception::new(&empty, "expression didn't result in a value", context)));
+                    }
+                }
+            }
+            Ok(Some(Value::new_vector(output, context)))
+        }
+        Sexpr::List(list) => {
+            walk_through_list(list, context)
+        }
     }
 }
 
 fn walk_through_list(list: &Vec<Sexpr>, context: &mut Context) -> InterpreterResult {
     if list.is_empty() {
-	return Ok(None);
+	    return Ok(None);
     }
     if let Sexpr::Atom(Atom::Symbol(s)) = &list[0] {
-	match s[0].as_str() {
-	    "define" => walk_through_define(list, context),
-	    "lambda" => walk_through_lambda(list, context),
-	    "if" => walk_through_if(list, context),
-	    "set!" => walk_through_set(list, context),
-	    "let" => walk_through_let(list, context),
-	    "begin" => walk_through_begin(list, context),
-	    "import" => walk_through_import(list, context),
-	    "module" => walk_through_module(list, context),
-	    "try" => walk_through_try(list, context),
-	    "error" => walk_through_error(list, context),
-	    _ => walk_through_call(list, context),
-	}
+        match s[0].as_str() {
+            "define" => walk_through_define(list, context),
+            "lambda" => walk_through_lambda(list, context),
+            "if" => walk_through_if(list, context),
+            "set!" => walk_through_set(list, context),
+            "let" => walk_through_let(list, context),
+            "begin" => walk_through_begin(list, context),
+            "import" => walk_through_import(list, context),
+            "module" => walk_through_module(list, context),
+            "try" => walk_through_try(list, context),
+            "error" => walk_through_error(list, context),
+            _ => walk_through_call(list, context),
+        }
     } else {
-	let empty: Vec<&str> = Vec::new();
-	Err(Box::new(Exception::new(&empty, "unreachable", context)))
+	    let empty: Vec<&str> = Vec::new();
+	    Err(Box::new(Exception::new(&empty, "unreachable", context)))
     }
 }
 
@@ -283,8 +283,8 @@ fn walk_through_module(list: &Vec<Sexpr>, context: &mut Context) -> InterpreterR
 	    let name = name.get_symbol(context)?;
 
 	    let name = if name.len() > 1 {
-		return Err(Box::new(Exception::new(&vec!["import"], "symbol must be singular", context)));
-	    } else {
+		    return Err(Box::new(Exception::new(&vec!["import"], "symbol must be singular", context)));
+        } else {
 		&name[0]
 	    };
 
@@ -364,15 +364,17 @@ fn walk_through_error(list: &Vec<Sexpr>, context: &mut Context) -> InterpreterRe
 
 fn walk_through_call(list: &Vec<Sexpr>, context: &mut Context) -> InterpreterResult {
     if let Sexpr::Atom(Atom::Symbol(name)) = &list[0] {
-	let function = match context.get(&name) {
-	    Some(f) => f.get_function(context)?.clone(),
-	    None => return Err(Box::new(Exception::new(&name, "not bound", context)))
-	};
+        let function = match context.get(&name) {
+            Some(f) => {
+                f.get_function(context)?.clone()
+            },
+            None => return Err(Box::new(Exception::new(&name, "not bound", context)))
+        };
 
-	function.call(&name, list, context)
+        function.call(&name, list, context)
 
     } else {
-	let empty: Vec<&str> = Vec::new();
-	Err(Box::new(Exception::new(&empty, "unreachable", context)))
+        let empty: Vec<&str> = Vec::new();
+        Err(Box::new(Exception::new(&empty, "unreachable", context)))
     }
 }
