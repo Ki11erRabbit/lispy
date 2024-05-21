@@ -302,6 +302,18 @@ impl Value {
 	    _ => Err(Box::new(Exception::new(&empty, "not a rust value", context))),
 	}
     }
+    pub fn get_rust_value_mut(&mut self, context: &Context) -> HelperResult<&mut Box<dyn Any>> {
+	let empty: Vec<&str> = Vec::new();
+	match self.raw {
+	    RawValue::Gc(ref mut gc) => {
+		match gc.get_mut() {
+		    GcValue::RustValue(r) => Ok(r),
+		    _ => Err(Box::new(Exception::new(&empty, "not a rust value", context))),
+		}
+	    }
+	    _ => Err(Box::new(Exception::new(&empty, "not a rust value", context))),
+	}
+    }
 
     pub fn new_nil() -> Self {
 	Value {
