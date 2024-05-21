@@ -37,14 +37,21 @@ struct GcBox<T: ?Sized> {
     value: T,
 }
 
-pub struct Gc<T: ?Sized> {
-    marked: NonNull<Mutex<Mark>>,
-    ptr: NonNull<GcBox<T>>,
+pub enum Gc<T: ?Sized> {
+    Normal {
+	marked: NonNull<Mutex<Mark>>,
+	ptr: NonNull<GcBox<T>>,
+    },
+    Protected {
+	marked: NonNull<Mutex<Mark>>,
+	ptr: Mutex<NonNull<GcBox<T>>>,
+    },
 }
+
 
 impl<T> Gc<T> {
     pub fn new(value: T) -> Self {
-	let gc = Gc {
+	let gc = Gc::Normal {
 	    marked: NonNull::new(Box::into_raw(Box::new(Mutex::new(Mark::White)))).unwrap(),
 	    ptr: NonNull::new(Box::into_raw(Box::new(GcBox { count: 1.into(), value }))).unwrap(),
 	};
@@ -56,7 +63,10 @@ impl<T: ?Sized> Gc<T> {
 
     pub fn mark(&self) {
 	let mut current = unsafe {
-	    self.marked.as_ref().lock().unwrap()
+	    match self {
+		Gc::Normal { marked, .. } => marked.as_ref().lock().unwrap(),
+		Gc::Protected { marked, .. } => marked.as_ref().lock().unwrap(),
+	    }
 	};
 	match *current {
 	    Mark::White => *current = Mark::Gray,
@@ -67,26 +77,55 @@ impl<T: ?Sized> Gc<T> {
 
     pub fn unmark(&self) {
 	unsafe {
-	    *self.marked.as_ref().lock().unwrap() = Mark::White;
+	    match self {
+		Gc::Normal { marked, .. } => *marked.as_ref().lock().unwrap() = Mark::White,
+		Gc::Protected { marked, .. } => *marked.as_ref().lock().unwrap() = Mark::White,
+	    }
 	}
     }
 	
 
     pub fn marked(&self) -> Mark {
 	unsafe {
-	    *self.marked.as_ref().lock().unwrap()
+	    match self {
+		Gc::Normal { marked, .. } => *marked.as_ref().lock().unwrap(),
+		Gc::Protected { marked, .. } => *marked.as_ref().lock().unwrap(),
+	    }
 	}
     }
 
     pub fn get(&self) -> &T {
 	unsafe {
-	    &self.ptr.as_ref().value
+	    match self {
+		Gc::Normal { ptr, .. } => &ptr.as_ref().value,
+		Gc::Protected { ptr, .. } => &ptr.lock().unwrap().as_mut().value,
+	    }
 	}
     }
 
     pub fn get_mut(&mut self) -> &mut T {
 	unsafe {
-	    &mut self.ptr.as_mut().value
+	    match self {
+		Gc::Normal { ptr, .. } => &mut ptr.as_mut().value,
+		Gc::Protected { ptr, .. } => &mut ptr.lock().unwrap().as_mut().value,
+	    }
+	}
+    }
+
+    pub fn protect(&self) {
+	unsafe {
+	    // TODO: Change to use UnsafeCell
+	    #[allow(mutable_transmutes)]
+	    let this = std::mem::transmute::<&Gc<T>, &mut Gc<T>>(self);
+	    match self {
+		Gc::Normal { marked, ptr } => {
+		    *this = Gc::Protected {
+			ptr: Mutex::new(*ptr),
+			marked: *marked,
+		    };
+		},
+		Gc::Protected { .. } => {},
+	    }
 	}
     }
 }
@@ -97,12 +136,24 @@ unsafe impl<T> Sync for Gc<T> {}
 impl<T> Clone for Gc<T> {
     fn clone(&self) -> Self {
 	unsafe {
-	    let ptr = self.ptr.as_ref();
-	    ptr.count.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-	    let marked = self.marked;
-	    Gc {
-		marked,
-		ptr: self.ptr,
+	    match self {
+		Gc::Normal { ptr, marked } => {
+		    let ptr_ref = ptr.as_ref();
+		    ptr_ref.count.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+		    Gc::Normal {
+			ptr: *ptr,
+			marked: *marked,
+		    }
+		},
+		Gc::Protected { ptr, marked } => {
+		    let ptr_ref = ptr.lock().unwrap();
+		    ptr_ref.as_ref().count.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+
+		    Gc::Protected {
+			ptr: std::ptr::read(ptr),
+			marked: *marked,
+		    }
+		},
 	    }
 	}
     }
@@ -111,10 +162,22 @@ impl<T> Clone for Gc<T> {
 impl<T: ?Sized> Drop for Gc<T> {
     fn drop(&mut self) {
 	unsafe {
-	    let ptr = self.ptr.as_ref();
-	    ptr.count.fetch_sub(1, std::sync::atomic::Ordering::Relaxed);
-	    if ptr.count.load(std::sync::atomic::Ordering::Relaxed) == 0 {
-		drop(Box::from_raw(self.ptr.as_ptr()));
+	    match self {
+		Gc::Normal { ptr, .. } => {
+		    let ptr_ref = ptr.as_ref();
+		    ptr_ref.count.fetch_sub(1, std::sync::atomic::Ordering::Relaxed);
+		    if ptr_ref.count.load(std::sync::atomic::Ordering::Relaxed) == 0 {
+			drop(Box::from_raw(ptr.as_ptr()));
+		    }
+		},
+		Gc::Protected { ptr, .. } => {
+		    let ptr_ref = ptr.lock().unwrap();
+		    ptr_ref.as_ref().count.fetch_sub(1, std::sync::atomic::Ordering::Relaxed);
+		    if ptr_ref.as_ref().count.load(std::sync::atomic::Ordering::Relaxed) == 0 {
+			let ptr = ptr.lock().unwrap();
+			drop(Box::from_raw(ptr.as_ptr()));
+		    }
+		},
 	    }
 	}
     }
