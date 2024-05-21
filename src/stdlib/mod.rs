@@ -830,7 +830,7 @@ fn stdlib_is_null(context: &mut Context, args: Vec<Value>, keyword_args: HashMap
     if args.len() == 1 {
 	return Ok(Value::new_boolean(args[0].is_nil()));
     } else {
-	let x = keyword_args.get("x").ok_or(Box::new(Exception::new(&vec!["null?"], "expected x to be bound", context)))?;
+	let x = keyword_args.get("x").ok_or(Box::new(Exception::new(&vec!["nil?"], "expected x to be bound", context)))?;
 	return Ok(Value::new_boolean(x.is_nil()));
     }
 }
@@ -887,6 +887,69 @@ fn stdlib_is_vector(context: &mut Context, args: Vec<Value>, keyword_args: HashM
     }
 }
 
+fn stdlib_is_char_shape() -> FunctionShape {
+    FunctionShape::new(vec!["x".to_string()])
+}
+
+fn stdlib_is_char(context: &mut Context, args: Vec<Value>, keyword_args: HashMap<String, Value>) -> HelperResult<Value> {
+    if args.len() == 1 {
+	return Ok(Value::new_boolean(args[0].is_char()));
+    } else {
+	let x = keyword_args.get("x").ok_or(Box::new(Exception::new(&vec!["char?"], "expected x to be bound", context)))?;
+	return Ok(Value::new_boolean(x.is_char()));
+    }
+}
+
+
+fn stdlib_append_shape() -> FunctionShape {
+    FunctionShape::new(vec!["x".to_string(), "y".to_string()])
+}
+
+fn stdlib_append(context: &mut Context, args: Vec<Value>, keyword_args: HashMap<String, Value>) -> HelperResult<Value> {
+    let (mut x, y) = if args.len() == 2 {
+	(args[0].clone(), args[1].clone())
+    } else if args.len() == 1 {
+	let x = args[0].clone();
+	let y = keyword_args.get("y").ok_or(Box::new(Exception::new(&vec!["append"], "missing argument y", context)))?.clone();
+	(x, y)
+    } else {
+	let x = keyword_args.get("x").ok_or(Box::new(Exception::new(&vec!["append"], "missing argument x", context)))?.clone();
+	let y = keyword_args.get("y").ok_or(Box::new(Exception::new(&vec!["append"], "missing argument y", context)))?.clone();
+	(x, y)
+	};
+
+    if x.is_vector() && y.is_vector() {
+	let x_ref = x.get_vector_mut(context)?;
+	let y = y.get_vector(context)?;
+	x_ref.append(&mut y.clone());
+	return Ok(x);
+    } else if x.is_pair() && y.is_pair() {
+	let x_ref = x.get_pair_mut(context)?;
+	let y = y.get_pair(context)?;
+	let mut last = x_ref;
+	while !last.1.is_nil() {
+	    last = last.1.get_pair_mut(context)?;
+	}
+	*last.1 = y.0.clone();
+	return Ok(x);
+    } else if x.is_string() && y.is_string() {
+	let x = x.get_string(context)?;
+	let y = y.get_string(context)?;
+	let out = format!("{}{}", x, y);
+	return Ok(Value::new_string_from_string(out, context));
+    } else if x.is_symbol() && y.is_symbol() {
+	let x = x.get_symbol(context)?;
+	let y = y.get_symbol(context)?;
+	let mut out = Vec::from_iter(x.iter().cloned().chain(y.iter().cloned()));
+	for y_i in y.iter() {
+	    out.push(y_i.clone());
+	}
+
+	return Ok(Value::new_symbol(out, context));
+    } else {
+	return Err(Box::new(Exception::new(&vec!["append"], "arguments must be vectors, strings, pairs, or symbols", context)));
+    }
+}
 
 
 fn stdlib_sleep_shape() -> FunctionShape {
@@ -967,7 +1030,9 @@ pub fn get_stdlib(context: &mut Context) -> ContextFrame {
     bindings.insert("procedure?".to_string(), Value::new_function(Function::Native(stdlib_is_procedure, stdlib_is_procedure_shape()), context));
     bindings.insert("pair?".to_string(), Value::new_function(Function::Native(stdlib_is_pair, stdlib_is_pair_shape()), context));
     bindings.insert("vector?".to_string(), Value::new_function(Function::Native(stdlib_is_vector, stdlib_is_vector_shape()), context));
-    bindings.insert("null?".to_string(), Value::new_function(Function::Native(stdlib_is_null, stdlib_is_null_shape()), context));
+    bindings.insert("nil?".to_string(), Value::new_function(Function::Native(stdlib_is_null, stdlib_is_null_shape()), context));
+    bindings.insert("char?".to_string(), Value::new_function(Function::Native(stdlib_is_char, stdlib_is_char_shape()), context));
+    bindings.insert("append".to_string(), Value::new_function(Function::Native(stdlib_append, stdlib_append_shape()), context));
 
     ContextFrame::new_with_bindings(bindings)
 }

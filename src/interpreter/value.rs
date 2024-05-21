@@ -27,6 +27,15 @@ impl Value {
 	    raw,
 	}
     }
+    pub fn new_string_from_string(value: String, context: &Context) -> Self {
+	let gc_object = Gc::new(GcValue::String(value));
+	context.send_gc(gc_object.clone());
+	let raw = RawValue::Gc(gc_object);
+	Value {
+	    raw,
+	}
+    }
+	
     pub fn get_string(&self, context: &Context) -> HelperResult<&String> {
 	match self.raw {
 	    RawValue::Gc(ref gc) => {
@@ -209,6 +218,18 @@ impl Value {
 	    _ => Err(Box::new(Exception::new(&empty, "not a vector", context))),
 	}
     }
+    pub fn get_vector_mut(&mut self, context: &Context) -> HelperResult<&mut Vec<Value>> {
+	let empty: Vec<&str> = Vec::new();
+	match self.raw {
+	    RawValue::Gc(ref mut gc) => {
+		match gc.get() {
+		    GcValue::Vector(ref mut v) => Ok(v),
+		    _ => Err(Box::new(Exception::new(&empty, "not a vector", context))),
+		}
+	    }
+	    _ => Err(Box::new(Exception::new(&empty, "not a vector", context))),
+	}
+    }
     pub fn is_vector(&self) -> bool {
 	match self.raw {
 	    RawValue::Gc(ref gc) => {
@@ -234,6 +255,18 @@ impl Value {
 	    RawValue::Gc(ref gc) => {
 		match gc.get() {
 		    GcValue::Pair((ref car, ref cdr)) => Ok((car, cdr)),
+		    _ => Err(Box::new(Exception::new(&empty, "not a pair", context))),
+		}
+	    },
+	    _ => Err(Box::new(Exception::new(&empty, "not a pair", context))),
+	}
+    }
+    pub fn get_pair_mut(&mut self, context: &Context) -> HelperResult<(&mut Value, &mut Value)> {
+	let empty: Vec<&str> = Vec::new();
+	match self.raw {
+	    RawValue::Gc(ref mut gc) => {
+		match gc.get() {
+		    GcValue::Pair((ref mut car, ref mut cdr)) => Ok((car, cdr)),
 		    _ => Err(Box::new(Exception::new(&empty, "not a pair", context))),
 		}
 	    },
