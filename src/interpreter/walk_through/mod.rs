@@ -10,7 +10,6 @@ pub fn run(file: File, context: &mut Context) -> Result<(), Box<dyn std::error::
 	walk_through(&sexpr, context)?;
 	//println!("{:?}", value);
 	if crate::gc::is_gc_on() {
-	    println!("gc");
 	    context.garbage_collect();
 	}
     }
@@ -39,11 +38,15 @@ fn walk_through(sexpr: &Sexpr, context: &mut Context) -> InterpreterResult {
 		Atom::Symbol(s) => {
 		    match context.get(&s) {
 			Some(value) => Ok(Some(value.clone())),
-			None => Err(Box::new(Exception::new(s.clone(), "not bound".to_string()))),
+			None => Err(Box::new(Exception::new(s, "not bound", context))),
 		    }
 		}
+		Atom::QuotedSymbol(s) => {
+		    Ok(Some(Value::new_symbol(s.clone(), context)))
+		}
 		Atom::Keyword(_) => {
-		    Err(Box::new(Exception::new(Vec::new(), "keyword not allowed here".to_string())))
+		    let empty: Vec<&str> = Vec::new();
+		    Err(Box::new(Exception::new(&empty, "keyword not allowed here", context)))
 		}
 		Atom::Char(c) => {
 		    Ok(Some(Value::new_char(*c)))
@@ -61,7 +64,8 @@ fn walk_through(sexpr: &Sexpr, context: &mut Context) -> InterpreterResult {
 			output.push(value);
 		    }
 		    None => {
-			return Err(Box::new(Exception::new(Vec::new(), "expression didn't result in a value".to_string())));
+			let empty: Vec<&str> = Vec::new();
+			return Err(Box::new(Exception::new(&empty, "expression didn't result in a value", context)));
 		    }
 		}
 	    }
@@ -79,7 +83,8 @@ fn walk_through(sexpr: &Sexpr, context: &mut Context) -> InterpreterResult {
 			output.push(value);
 		    }
 		    None => {
-			return Err(Box::new(Exception::new(Vec::new(), "expression didn't result in a value".to_string())));
+			let empty: Vec<&str> = Vec::new();
+			return Err(Box::new(Exception::new(&empty, "expression didn't result in a value", context)));
 		    }
 		}
 	    }
@@ -110,7 +115,8 @@ fn walk_through_list(list: &Vec<Sexpr>, context: &mut Context) -> InterpreterRes
 	    _ => walk_through_call(list, context),
 	}
     } else {
-	Err(Box::new(Exception::new(Vec::new(), "unreachable".to_string())))
+	let empty: Vec<&str> = Vec::new();
+	Err(Box::new(Exception::new(&empty, "unreachable", context)))
     }
 }
 
@@ -124,18 +130,18 @@ fn walk_through_define(list: &Vec<Sexpr>, context: &mut Context) -> InterpreterR
 		    Ok(None)
 		}
 		None => {
-		    Err(Box::new(Exception::new(vec!["define".to_string()], "expression didn't result in a value".to_string())))
+		    Err(Box::new(Exception::new(&vec!["define"], "expression didn't result in a value", context)))
 		}
 	    }
 	}
 	[_, Sexpr::List(header), body] => {
 	    let name = match &header[0] {
 		Sexpr::Atom(Atom::Symbol(s)) => &s[0],
-		_ => return Err(Box::new(Exception::new(vec!["define".to_string()], "not a symbol".to_string())))
+		_ => return Err(Box::new(Exception::new(&vec!["define"], "not a symbol", context)))
 	    };
 	    let args = header.iter().skip(1).map(|sexpr| match sexpr {
 		Sexpr::Atom(Atom::Symbol(s)) => Ok(s[0].clone()),
-		_ => Err(Box::new(Exception::new(vec!["define".to_string()], "not a symbol".to_string()))),
+		_ => Err(Box::new(Exception::new(&vec!["define"], "not a symbol", context))),
 	    }).collect::<Vec<Result<String, Box<Exception>>>>();
 	    let args = args.into_iter().collect::<Result<Vec<String>, Box<Exception>>>()?;
 
@@ -144,7 +150,7 @@ fn walk_through_define(list: &Vec<Sexpr>, context: &mut Context) -> InterpreterR
 	    context.define(&name, function);
 	    Ok(None)
 	},
-	_ => Err(Box::new(Exception::new(vec!["define".to_string()], "unusual syntax".to_string()))),
+	_ => Err(Box::new(Exception::new(&vec!["define"], "unusual syntax", context))),
     }
 }
 
@@ -153,14 +159,14 @@ fn walk_through_lambda(list: &Vec<Sexpr>, context: &mut Context) -> InterpreterR
 	[_, Sexpr::List(header), body] => {
 	    let args = header.iter().map(|sexpr| match sexpr {
 		Sexpr::Atom(Atom::Symbol(s)) => Ok(s[0].clone()),
-		_ => Err(Box::new(Exception::new(vec!["lambda".to_string()], "not a symbol".to_string()))),
+		_ => Err(Box::new(Exception::new(&vec!["lambda"], "not a symbol", context))),
 	    }).collect::<Vec<Result<String, Box<Exception>>>>();
 	    let args = args.into_iter().collect::<Result<Vec<String>, Box<Exception>>>()?;
 
 	    let function = Function::Tree(args.clone(), body.clone(), context.copy_frame(), FunctionShape::new(args));
 	    Ok(Some(Value::new_function(function, context)))
 	},
-	_ => Err(Box::new(Exception::new(vec!["lambda".to_string()], "unusual syntax".to_string()))),
+	_ => Err(Box::new(Exception::new(&vec!["lambda"], "unusual syntax", context))),
     }
 }
 
@@ -170,16 +176,16 @@ fn walk_through_if(list: &Vec<Sexpr>, context: &mut Context) -> InterpreterResul
 	    let condition = walk_through(condition, context)?;
 	    match condition {
 		Some(value) => {
-		    if value.get_boolean()? {
+		    if value.get_boolean(context)? {
 			walk_through(consequent, context)
 		    } else {
 			walk_through(alternate, context)
 		    }
 		}
-		_ => Err(Box::new(Exception::new(vec!["if".to_string()], "expression didn't result in a value".to_string())))
+		_ => Err(Box::new(Exception::new(&vec!["if"], "expression didn't result in a value", context)))
 	    }
 	},
-	_ => Err(Box::new(Exception::new(vec!["if".to_string()], "unusual syntax".to_string()))),
+	_ => Err(Box::new(Exception::new(&vec!["if"], "unusual syntax", context))),
     }
 }
 
@@ -193,11 +199,11 @@ fn walk_through_set(list: &Vec<Sexpr>, context: &mut Context) -> InterpreterResu
 		    Ok(None)
 		}
 		None => {
-		    Err(Box::new(Exception::new(vec!["set!".to_string()], "expression didn't result in a value".to_string())))
+		    Err(Box::new(Exception::new(&vec!["set!"], "expression didn't result in a value", context)))
 		}
 	    }
 	}
-	_ => Err(Box::new(Exception::new(vec!["set!".to_string()], "unusual syntax".to_string()))),
+	_ => Err(Box::new(Exception::new(&vec!["set!"], "unusual syntax", context))),
     }
 }
 
@@ -216,21 +222,21 @@ fn walk_through_let(list: &Vec<Sexpr>, context: &mut Context) -> InterpreterResu
 					context.define(&name[0], value);
 				    }
 				    None => {
-					return Err(Box::new(Exception::new(vec!["let".to_string()], "expression didn't result in a value".to_string())));
+					return Err(Box::new(Exception::new(&vec!["let"], "expression didn't result in a value", context)));
 				    }
 				}
 			    }
-			    _ => return Err(Box::new(Exception::new(vec!["let".to_string()], "unusual syntax".to_string()))),
+			    _ => return Err(Box::new(Exception::new(&vec!["let"], "unusual syntax", context))),
 			}
 		    }
-		    _ => return Err(Box::new(Exception::new(vec!["let".to_string()], "unusual syntax".to_string()))),
+		    _ => return Err(Box::new(Exception::new(&vec!["let"], "unusual syntax", context))),
 		}
 	    }
 	    let value = walk_through(body, context);
 	    context.pop_frame();
 	    value
 	}
-	_ => Err(Box::new(Exception::new(vec!["let".to_string()], "unusual syntax".to_string())))
+	_ => Err(Box::new(Exception::new(&vec!["let"], "unusual syntax", context)))
     }
 }
 
@@ -247,7 +253,7 @@ fn walk_through_import(list: &Vec<Sexpr>, context: &mut Context) -> InterpreterR
 	[_, Sexpr::Atom(Atom::String(path))] => {
 	    todo!("import");
 	}
-	_ => Err(Box::new(Exception::new(vec!["import".to_string()], "unusual syntax".to_string())))
+	_ => Err(Box::new(Exception::new(&vec!["import"], "unusual syntax", context)))
     }
 }
 
@@ -256,7 +262,7 @@ fn walk_through_module(list: &Vec<Sexpr>, context: &mut Context) -> InterpreterR
 	[_, Sexpr::Atom(Atom::String(ref path))] => {
 	    todo!("module");
 	}
-	_ => Err(Box::new(Exception::new(vec!["module".to_string()], "unusual syntax".to_string())))
+	_ => Err(Box::new(Exception::new(&vec!["module"], "unusual syntax", context)))
     }
 }
 
@@ -268,35 +274,34 @@ fn walk_through_try(list: &Vec<Sexpr>, context: &mut Context) -> InterpreterResu
 		Ok(value) => return Ok(value),
 		Err(e) => {
 		    let Sexpr::List(handlers) = handlers else {
-			return Err(Box::new(Exception::new(vec!["try".to_string()], "unusual syntax".to_string())));
+			return Err(Box::new(Exception::new(&vec!["try"], "unusual syntax", context)));
 		    };
 		    for handler in handlers {
 			if let Sexpr::List(handler) = handler {
 			    if handler.len() != 2 {
-				return Err(Box::new(Exception::new(vec!["try".to_string()], "unusual syntax".to_string())));
+				return Err(Box::new(Exception::new(&vec!["try"], "unusual syntax", context)));
 			    }
 			    let Sexpr::List(clause) = &handler[0] else {
-				return Err(Box::new(Exception::new(vec!["try".to_string()], "unusual syntax".to_string())));
+				return Err(Box::new(Exception::new(&vec!["try"], "unusual syntax", context)));
 			    };
 			    let Sexpr::Atom(Atom::Symbol(keyword)) = &clause[0] else {
-				return Err(Box::new(Exception::new(vec!["try".to_string()], "unusual syntax".to_string())));
+				return Err(Box::new(Exception::new(&vec!["try"], "unusual syntax", context)));
 			    };
 			    
 			    match keyword[0].as_str() {
 				"catch" => {},
-				_ => return Err(Box::new(Exception::new(vec!["try".to_string()], "unusual syntax".to_string()))),
+				_ => return Err(Box::new(Exception::new(&vec!["try"], "unusual syntax", context))),
 			    }
-			    let Sexpr::Atom(Atom::Symbol(who)) = &clause[1] else {
-				return Err(Box::new(Exception::new(vec!["try".to_string()], "unusual syntax".to_string())));
-			    };
+			    let who = walk_through(&clause[1], context)?.ok_or(Box::new(Exception::new(&vec!["try"], "not a symbol", context)))?;
+			    let who = who.get_symbol(context)?;
 					
 			    match handler.as_slice() {
 				[_, body] => {
-				    if e.get_who() == who {
+				    if e.get_who(context) == who {
 					return walk_through(body, context);
 				    }
 				},
-				_ => return Err(Box::new(Exception::new(vec!["try".to_string()], "unusual syntax".to_string())))
+				_ => return Err(Box::new(Exception::new(&vec!["try"], "unusual syntax", context)))
 			    }
 			}
 		    }
@@ -304,24 +309,27 @@ fn walk_through_try(list: &Vec<Sexpr>, context: &mut Context) -> InterpreterResu
 		}
 	    }
 	}
-	_ => Err(Box::new(Exception::new(vec!["try".to_string()], "unusual syntax".to_string())))
+	_ => Err(Box::new(Exception::new(&vec!["try"], "unusual syntax", context)))
     }
 }
 
-fn walk_through_error(list: &Vec<Sexpr>, _: &mut Context) -> InterpreterResult {
+fn walk_through_error(list: &Vec<Sexpr>, context: &mut Context) -> InterpreterResult {
     match list.as_slice() {
-	[_, Sexpr::Atom(Atom::Symbol(who)), Sexpr::Atom(Atom::String(message))] => {
-	    Err(Box::new(Exception::new(who.clone(), message.clone())))
+	[_, who, Sexpr::Atom(Atom::String(message))] => {
+	    let who = walk_through(who, context)?.ok_or(Box::new(Exception::new(&vec!["error"], "not a symbol", context)))?;
+	    let who = who.get_symbol(context)?;
+
+	    Err(Box::new(Exception::new(&who, &message, context)))
 	}
-	_ => Err(Box::new(Exception::new(vec!["error".to_string()], "unusual syntax".to_string()))),
+	_ => Err(Box::new(Exception::new(&vec!["error"], "unusual syntax", context))),
     }
 }
 
 fn walk_through_call(list: &Vec<Sexpr>, context: &mut Context) -> InterpreterResult {
     if let Sexpr::Atom(Atom::Symbol(name)) = &list[0] {
 	let function = match context.get(&name) {
-	    Some(f) => f.get_function()?.clone(),
-	    None => return Err(Box::new(Exception::new(name.clone(), "not bound".to_string())))
+	    Some(f) => f.get_function(context)?.clone(),
+	    None => return Err(Box::new(Exception::new(&name, "not bound", context)))
 	};
 
 	match function {
@@ -338,11 +346,11 @@ fn walk_through_call(list: &Vec<Sexpr>, context: &mut Context) -> InterpreterRes
 					keyword_args.insert(k.clone(), value);
 				    }
 				    None => {
-					return Err(Box::new(Exception::new(vec![name[0].clone()], "expression didn't result in a value".to_string())));
+					return Err(Box::new(Exception::new(&name, "expression didn't result in a value", context)));
 				    }
 				}
 			    } else {
-				return Err(Box::new(Exception::new(vec![name[0].clone()], "unusual syntax".to_string())));
+				return Err(Box::new(Exception::new(&name, "unusual syntax", context)));
 			    }
 			}
 			s => {
@@ -351,14 +359,14 @@ fn walk_through_call(list: &Vec<Sexpr>, context: &mut Context) -> InterpreterRes
 				    args.push(value);
 				}
 				None => {
-				    return Err(Box::new(Exception::new(vec![name[0].clone()], "expression didn't result in a value".to_string())));
+				    return Err(Box::new(Exception::new(&name, "expression didn't result in a value", context)));
 				}
 			    }
 			}
 		    }
 		}
 
-		shape.check(&name, &args, &keyword_args)?;
+		shape.check(&name, &args, &keyword_args, context)?;
 
 		context.push_frame(Some(frame.clone()));
 
@@ -386,11 +394,11 @@ fn walk_through_call(list: &Vec<Sexpr>, context: &mut Context) -> InterpreterRes
 					keyword_args.insert(k.clone(), value);
 				    }
 				    None => {
-					return Err(Box::new(Exception::new(vec![name[0].clone()], "expression didn't result in a value".to_string())));
+					return Err(Box::new(Exception::new(&name, "expression didn't result in a value", context)));
 				    }
 				}
 			    } else {
-				return Err(Box::new(Exception::new(vec![name[0].clone()], "unusual syntax".to_string())));
+				return Err(Box::new(Exception::new(&name, "unusual syntax", context)));
 			    }
 			}
 			s => {
@@ -399,19 +407,20 @@ fn walk_through_call(list: &Vec<Sexpr>, context: &mut Context) -> InterpreterRes
 				    args.push(value);
 				}
 				None => {
-				    return Err(Box::new(Exception::new(vec![name[0].clone()], "expression didn't result in a value".to_string())));
+				    return Err(Box::new(Exception::new(&name, "expression didn't result in a value", context)));
 				}
 			    }
 			}
 		    }
 		}
 
-		shape.check(&name, &args, &keyword_args)?;
+		shape.check(&name, &args, &keyword_args, context)?;
 		
 		Ok(Some(f(context, args, keyword_args)?))
 	    }
 	}
     } else {
-	Err(Box::new(Exception::new(Vec::new(), "unreachable".to_string())))
+	let empty: Vec<&str> = Vec::new();
+	Err(Box::new(Exception::new(&empty, "unreachable", context)))
     }
 }

@@ -31,5 +31,5 @@
     (display "true\n")
     (display "false\n"))
 
-(try (error test "error") ([(catch test)
+(try (error 'test "error") ([(catch 'test)
    (display "caught error\n")]))

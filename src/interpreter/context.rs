@@ -5,6 +5,7 @@ use crate::interpreter::module::Module;
 use crate::stdlib::get_stdlib;
 use std::sync::{Arc, RwLock};
 use std::sync::mpsc::Sender;
+use std::cell::RefCell;
 
 use super::value::GcValue;
 
@@ -46,7 +47,7 @@ impl ContextFrame {
 pub struct Context {
     gc_lock: Arc<RwLock<()>>,
     sender: Sender<Gc<GcValue>>,
-    modules: HashMap<String, Module>,
+    modules: RefCell<HashMap<String, Module>>,
     frames: Vec<ContextFrame>,
 }
 
@@ -55,7 +56,7 @@ impl Context {
 	let mut ctx = Context {
 	    gc_lock,
 	    sender,
-	    modules: HashMap::new(),
+	    modules: RefCell::new(HashMap::new()),
 	    frames: vec![],
 	};
 	let stdlib = get_stdlib(&mut ctx);
@@ -89,12 +90,12 @@ impl Context {
     }
     
 
-    pub fn get(&mut self, name: &Vec<String>) -> Option<&Value> {
+    pub fn get(&self, name: &Vec<String>) -> Option<Value> {
 	if name.len() == 1 {
-	    return self.get_from_frame(&name[0]);
+	    return self.get_from_frame(&name[0]).cloned();
 	}
-	if let Some(module) = self.modules.get_mut(&name[0]) {
-	    module.get(&name.as_slice()[1..])
+	if let Some(module) = self.modules.borrow_mut().get_mut(&name[0]) {
+	    module.get(&name.as_slice()[1..]).cloned()
 	} else {
 	    None
 	}
@@ -105,7 +106,7 @@ impl Context {
     }
 
     pub fn add_module(&mut self, name: &str, module: Module) {
-	self.modules.insert(name.to_string(), module);
+	self.modules.borrow_mut().insert(name.to_string(), module);
     }
     
     pub fn garbage_collect(&mut self) {
@@ -113,7 +114,7 @@ impl Context {
 	for frame in self.frames.iter_mut() {
 	    frame.mark();
 	}
-	for (_, module) in self.modules.iter_mut() {
+	for (_, module) in self.modules.borrow_mut().iter_mut() {
 	    module.mark();
 	}
 	drop(lock);
@@ -123,13 +124,20 @@ impl Context {
 	for frame in self.frames.iter_mut() {
 	    frame.unmark();
 	}
-	for (_, module) in self.modules.iter_mut() {
+	for (_, module) in self.modules.borrow_mut().iter_mut() {
 	    module.unmark();
 	}
 	
     }
 
-    pub fn send_gc(&mut self, gc: Gc<GcValue>) {
+    pub fn send_gc(&self, gc: Gc<GcValue>) {
 	self.sender.send(gc).unwrap();
+    }
+}
+
+impl Default for Context {
+    fn default() -> Self {
+	let (sender, _) = std::sync::mpsc::channel();
+	Context::new(Arc::new(RwLock::new(())), sender)
     }
 }

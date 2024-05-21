@@ -1,6 +1,8 @@
 use std::error::Error;
 use crate::interpreter::value::Value;
 
+use self::context::Context;
+
 
 pub mod walk_through;
 
@@ -14,20 +16,23 @@ pub type HelperResult<T> = std::result::Result<T, Box<Exception>>;
 
 #[derive(Debug)]
 pub struct Exception {
-    who: Vec<String>,
-    message: String,
+    who: Value, // Symbol
+    message: Value, // String
 }
 
 impl Exception {
-    pub fn new(who: Vec<String>, message: String) -> Self {
+    pub fn new<S: AsRef<str>>(who: &Vec<S>, message: &str, context: &Context) -> Self {
+	let who = who.iter().map(|s| s.as_ref().to_string()).collect();
+	let who = Value::new_symbol(who, context);
+	let message = Value::new_string(message, context);
 	Exception {
 	    who,
 	    message,
 	}
     }
 
-    pub fn get_who(&self) -> &Vec<String> {
-	&self.who
+    pub fn get_who(&self, context: &mut Context) -> &Vec<String> {
+	self.who.get_symbol(context).expect("who is not a symbol")
     }
 }
 
@@ -35,10 +40,6 @@ impl Error for Exception {}
 
 impl std::fmt::Display for Exception {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-	if self.who.len() == 0 {
-	    return write!(f, "Error: {}", self.message);
-	}
-	let who = self.who.join(".");
-	write!(f, "Error: {} {}", who, self.message)
+	write!(f, "Error: {} {}", self.who, self.message)
     }
 }

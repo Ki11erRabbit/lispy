@@ -38,6 +38,7 @@ pub enum Atom {
     Symbol(Vec<String>),
     Keyword(String),
     Char(char),
+    QuotedSymbol(Vec<String>),
     Null,
 }
 
@@ -70,6 +71,8 @@ peg::parser!{
 	    }
 	pub(crate) rule scoped_symbol() -> Vec<String>
 	    = s:symbol() ++ ['.'] { s }
+	pub(crate) rule quoted_symbol() -> Vec<String>
+	    = ['\''] s:scoped_symbol() { s }
 	pub(crate) rule keyword() -> String
 	    = ":" s:symbol() { s }
 	pub(crate) rule string() -> String
@@ -118,6 +121,7 @@ peg::parser!{
 		 / i:(integer()) { Atom::Integer(i) }
 	         / k:(keyword()) { Atom::Keyword(k) }
 	/ b:(boolean()) { Atom::Boolean(b) }
+	/ q:(quoted_symbol()) { Atom::QuotedSymbol(q) }
 	/ s:(scoped_symbol()) { Atom::Symbol(s) }
 	pub(crate) rule paren_list() -> Vec<Sexpr>
 	    = ['('] [' '|'\t'|'\n'|'\r']* a:sexpr() ** ([' '|'\t'|'\n'|'\r']*) [')'] { a.into_iter().map(|a| a).collect() }
