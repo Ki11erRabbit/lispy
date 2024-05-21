@@ -54,7 +54,7 @@ impl<T> Gc<T> {
 
 impl<T: ?Sized> Gc<T> {
 
-    pub fn mark(&mut self) {
+    pub fn mark(&self) {
 	let mut current = unsafe {
 	    self.marked.as_ref().lock().unwrap()
 	};
@@ -65,7 +65,7 @@ impl<T: ?Sized> Gc<T> {
 	}
     }
 
-    pub fn unmark(&mut self) {
+    pub fn unmark(&self) {
 	unsafe {
 	    *self.marked.as_ref().lock().unwrap() = Mark::White;
 	}

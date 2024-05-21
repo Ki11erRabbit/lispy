@@ -1,4 +1,13 @@
 
+(import "mod.scm" 'mod)
+
+(mod.test)
+
+(module 'test 
+        (define (test) (display "test\n")))
+   
+(test.test)
+
 (define l '(1 2 3 4))
 
 (define x 10)

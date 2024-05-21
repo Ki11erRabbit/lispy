@@ -1,4 +1,4 @@
-use std::collections::HashMap; 
+use std::collections::{HashMap, HashSet}; 
 use crate::gc::{self, Gc};
 use crate::interpreter::value::Value;
 use crate::interpreter::module::Module;
@@ -30,14 +30,14 @@ impl ContextFrame {
 	self.bindings.get(name)
     }
 
-    pub fn mark(&mut self) {
-	for (_, value) in self.bindings.iter_mut() {
+    pub fn mark(&self) {
+	for (_, value) in self.bindings.iter() {
 	    value.mark();
 	}
     }
 
-    pub fn unmark(&mut self) {
-	for (_, value) in self.bindings.iter_mut() {
+    pub fn unmark(&self) {
+	for (_, value) in self.bindings.iter() {
 	    value.unmark();
 	}
     }
@@ -95,7 +95,7 @@ impl Context {
 	    return self.get_from_frame(&name[0]).cloned();
 	}
 	if let Some(module) = self.modules.borrow_mut().get_mut(&name[0]) {
-	    module.get(&name.as_slice()[1..]).cloned()
+	    module.get(&name.as_slice()[1..], self)
 	} else {
 	    None
 	}
@@ -132,6 +132,36 @@ impl Context {
 
     pub fn send_gc(&self, gc: Gc<GcValue>) {
 	self.sender.send(gc).unwrap();
+    }
+
+    pub fn module_list(&self) -> HashSet<String> {
+	self.modules.borrow().keys().cloned().collect()
+    }
+
+    pub fn remove_module(&mut self, name: &str) -> Option<Module> {
+	self.modules.borrow_mut().remove(name)
+    }
+
+    pub fn pop_modules(&mut self) -> HashMap<String, Module> {
+	self.modules.borrow_mut().drain().collect()
+    }
+
+    pub fn add_modules(&mut self, modules: HashMap<String, Module>) {
+	for (name, module) in modules {
+	    self.modules.borrow_mut().insert(name, module);
+	}
+    }
+	
+}
+
+impl Clone for Context {
+    fn clone(&self) -> Self {
+	Context {
+	    gc_lock: self.gc_lock.clone(),
+	    sender: self.sender.clone(),
+	    modules: RefCell::new(HashMap::new()),
+	    frames: Vec::new(),
+	}
     }
 }
 

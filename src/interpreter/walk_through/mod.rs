@@ -1,6 +1,7 @@
 use crate::parser::{File, Sexpr, Atom};
 use super::Exception;
 use super::context::Context;
+use super::module::Module;
 use super::value::{Value, Function, FunctionShape};
 use super::InterpreterResult;
 
@@ -255,8 +256,21 @@ fn walk_through_begin(list: &Vec<Sexpr>, context: &mut Context) -> InterpreterRe
 
 fn walk_through_import(list: &Vec<Sexpr>, context: &mut Context) -> InterpreterResult {
     match list.as_slice() {
-	[_, Sexpr::Atom(Atom::String(path))] => {
-	    todo!("import");
+	[_, path, name] => {
+	    let path = walk_through(path, context)?.ok_or(Box::new(Exception::new(&vec!["import"], "not a string", context)))?;
+	    let path = path.get_string(context)?;
+	    let name = walk_through(name, context)?.ok_or(Box::new(Exception::new(&vec!["import"], "not a symbol", context)))?;
+	    let name = name.get_symbol(context)?;
+
+	    let module = Module::new(path);
+	    let name = if name.len() > 1 {
+		return Err(Box::new(Exception::new(&vec!["import"], "symbol must be singular", context)));
+	    } else {
+		&name[0]
+	    };
+
+	    context.add_module(&name, module);
+	    Ok(None)
 	}
 	_ => Err(Box::new(Exception::new(&vec!["import"], "unusual syntax", context)))
     }
@@ -264,8 +278,26 @@ fn walk_through_import(list: &Vec<Sexpr>, context: &mut Context) -> InterpreterR
 
 fn walk_through_module(list: &Vec<Sexpr>, context: &mut Context) -> InterpreterResult {
     match list.as_slice() {
-	[_, Sexpr::Atom(Atom::String(ref path))] => {
-	    todo!("module");
+	[_, name, ..] => {
+	    let name = walk_through(name, context)?.ok_or(Box::new(Exception::new(&vec!["module"], "not a symbol", context)))?;
+	    let name = name.get_symbol(context)?;
+
+	    let name = if name.len() > 1 {
+		return Err(Box::new(Exception::new(&vec!["import"], "symbol must be singular", context)));
+	    } else {
+		&name[0]
+	    };
+
+	    let mut new_context = context.clone();
+	    new_context.push_frame(None);
+
+	    let list = list.as_slice()[2..].to_vec();
+	    run(File::new(list), &mut new_context).map_err(|_| Box::new(Exception::new(&vec!["module"], "error while loading module", context)))?;
+
+	    let module = Module::new_from_context(new_context);
+
+	    context.add_module(&name, module);
+	    Ok(None)
 	}
 	_ => Err(Box::new(Exception::new(&vec!["module"], "unusual syntax", context)))
     }

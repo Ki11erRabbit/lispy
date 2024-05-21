@@ -282,17 +282,17 @@ impl Value {
 	}
     }
 
-    pub fn mark(&mut self) {
+    pub fn mark(&self) {
 	match self.raw {
-	    RawValue::Gc(ref mut gc) => {
+	    RawValue::Gc(ref gc) => {
 		gc.mark();
-		match gc.get_mut() {
-		    GcValue::Vector(ref mut list) => {
+		match gc.get() {
+		    GcValue::Vector(ref list) => {
 			for v in list {
 			    v.mark();
 			}
 		    },
-		    GcValue::Function(ref mut f) => {
+		    GcValue::Function(ref f) => {
 			match f {
 			    Function::Tree(_, _, frame, _) => {
 				frame.mark();
@@ -300,7 +300,7 @@ impl Value {
 			    Function::Native(_, _) => {},
 			}
 		    },
-		    GcValue::Pair((ref mut car, ref mut cdr)) => {
+		    GcValue::Pair((ref car, ref cdr)) => {
 			car.mark();
 			cdr.mark();
 		    },
@@ -312,17 +312,17 @@ impl Value {
 	}
     }
 
-    pub fn unmark(&mut self) {
+    pub fn unmark(&self) {
 	match self.raw {
-	    RawValue::Gc(ref mut gc) => {
+	    RawValue::Gc(ref gc) => {
 		gc.unmark();
-		match gc.get_mut() {
-		    GcValue::Vector(ref mut list) => {
+		match gc.get() {
+		    GcValue::Vector(ref list) => {
 			for v in list {
 			    v.unmark();
 			}
 		    },
-		    GcValue::Function(ref mut f) => {
+		    GcValue::Function(ref f) => {
 			match f {
 			    Function::Tree(_, _, frame, _) => {
 				frame.unmark();
@@ -330,7 +330,7 @@ impl Value {
 			    Function::Native(_, _) => {},
 			}
 		    },
-		    GcValue::Pair((ref mut car, ref mut cdr)) => {
+		    GcValue::Pair((ref car, ref cdr)) => {
 			car.unmark();
 			cdr.unmark();
 		    },
