@@ -1433,7 +1433,21 @@ fn stdlib_vector_reverse(context: &mut Context, args: Vec<Value>, keyword_args: 
     }
 }
     
+fn stdlib_type_name_shape() -> FunctionShape {
+	FunctionShape::new(vec!["value".to_string()])
+}
 
+fn stdlib_type_name(context: &mut Context, args: Vec<Value>, keyword_args: HashMap<String, Value>) -> HelperResult<Value> {
+    let value = if args.len() == 1 {
+	args[0].clone()
+    } else {
+	keyword_args.get("value").ok_or(Box::new(Exception::new(&vec!["type-name"], "missing argument value", context)))?.clone()
+    };
+
+    let index = value.get_type_index();
+
+    Ok(context.get_type_symbol(index))
+}
 
 
 fn stdlib_sleep_shape() -> FunctionShape {
@@ -1538,6 +1552,7 @@ pub fn get_stdlib(context: &mut Context) -> ContextFrame {
     bindings.insert("vector-reverse".to_string(), Value::new_function(Function::Native(stdlib_vector_reverse, stdlib_vector_reverse_shape()), context));
     bindings.insert("string-reverse".to_string(), Value::new_function(Function::Native(stdlib_string_reverse, stdlib_string_reverse_shape()), context));
     bindings.insert("reverse".to_string(), Value::new_function(Function::Native(stdlib_reverse, stdlib_reverse_shape()), context));
+    bindings.insert("type-name".to_string(), Value::new_function(Function::Native(stdlib_type_name, stdlib_type_name_shape()), context));
 
 
 

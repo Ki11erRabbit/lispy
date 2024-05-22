@@ -448,6 +448,27 @@ impl Value {
 	    _ => {}
 	}
     }
+
+    pub fn get_type_index(&self) -> usize {
+	match &self.raw {
+	    RawValue::Gc(gc) => {
+		match gc.get() {
+		    GcValue::String(_) => 1,
+		    GcValue::Sexpr(_) => 10,
+		    GcValue::Function(_) => 8,
+		    GcValue::Pair(_) => 6,
+		    GcValue::Vector(_) => 7,
+		    GcValue::Symbol(_) => 5,
+		    GcValue::RustValue(_) => 11,
+		}
+	    },
+	    RawValue::Integer(_) => 2,
+	    RawValue::Float(_) => 3,
+	    RawValue::Boolean(_) => 4,
+	    RawValue::Nil => 0,
+	    RawValue::Char(_) => 9,
+	}
+    }
     
 }
 
