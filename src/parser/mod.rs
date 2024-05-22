@@ -1,5 +1,7 @@
-mod macro;
+mod r#macro;
 
+use std::collections::HashSet;
+use std::hash::{Hash, Hasher};
 use std::{str::FromStr, cell::RefCell};
 
 #[derive(Debug, PartialEq)]
@@ -44,7 +46,23 @@ pub enum Atom {
     Null,
 }
 
-#[derive(Debug, PartialEq, Clone)]
+impl Hash for Atom {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+	match self {
+	    Atom::String(s) => s.hash(state),
+	    Atom::Integer(i) => i.hash(state),
+	    Atom::Float(f) => f.to_string().hash(state),
+	    Atom::Boolean(b) => b.hash(state),
+	    Atom::Symbol(s) => s.hash(state),
+	    Atom::Keyword(k) => k.hash(state),
+	    Atom::Char(c) => c.hash(state),
+	    Atom::QuotedSymbol(s) => s.hash(state),
+	    Atom::Null => "null".hash(state),
+	}
+    }
+}
+
+#[derive(Debug, PartialEq, Clone, Hash)]
 pub enum Sexpr {
     Atom(Atom),
     List(Vec<Sexpr>),
@@ -52,6 +70,7 @@ pub enum Sexpr {
     VectorList(Vec<Sexpr>),
     
 }
+
 
 peg::parser!{
     grammar parser() for str {
@@ -150,7 +169,11 @@ peg::parser!{
 }
 
 pub fn parse(input: &str) -> Result<File, peg::error::ParseError<peg::str::LineCol>> {
-	parser::file(input)
+    parser::file(input).map(|f| {
+	let mut macros = HashSet::new();
+	let File { index, body } = f;
+	File::new(r#macro::expand(body, &mut macros))
+    })
 }
 
 #[cfg(test)]
