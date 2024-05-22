@@ -13,7 +13,7 @@ pub struct Macro {
 }
 
 impl Macro {
-    pub fn new(header: Vec<Sexpr>, body: Sexpr) -> Result<Self, String> {
+    pub fn new(header: Vec<Sexpr>, body: Sexpr) -> Self {
 	let mut symbol_positions = HashMap::new();
 	let mut possible_variables = Vec::new();
 	Macro::get_possible_variables(&header, &mut possible_variables, &mut symbol_positions, 0);
@@ -73,30 +73,44 @@ impl Macro {
 	    _ => {},
 	}
     }
+
+    fn expand(&self, bindings: &MacroContext, list: Vec<Sexpr>) -> Option<Sexpr> {
+    }
+    
+    fn expand_sub(&self, bindings: &mut MacroContext, source: &Vec<Sexpr>, macros: &HashSet<Macro>, level: usize) {
+    }
 }
 
 
 struct MacroContext<'a> {
-    bindings: HashSet<&'a Vec<String>>
+    bindings: Vec<HashSet<&'a Vec<String>>>,
 }
 
 impl<'a> MacroContext<'a> {
     pub fn new() -> Self {
 	MacroContext {
-	    bindings: HashSet::new(),
+	    bindings: vec![HashSet::new()],
 	}
     }
 
     pub fn bind(&mut self, variable: &'a Vec<String>) {
-	self.bindings.insert(variable);
+	self.bindings.last_mut().unwrap().insert(variable);
     }
 
     pub fn unbind(&mut self, variable: &'a Vec<String>) {
-	self.bindings.remove(variable);
+	self.bindings.last_mut().unwrap().remove(variable);
     }
 
     pub fn is_bound(&self, variable: &'a Vec<String>) -> bool {
-	self.bindings.contains(variable)
+	self.bindings.iter().any(|b| b.contains(variable))
+    }
+
+    pub fn push(&mut self) {
+	self.bindings.push(HashSet::new());
+    }
+
+    pub fn pop(&mut self) {
+	self.bindings.pop();
     }
 }
 
@@ -105,9 +119,100 @@ pub fn expand(source: Vec<Sexpr>, macros: &HashSet<Macro>) -> Vec<Sexpr> {
     expand_real(&mut bindings, source, macros)
 }
 
-fn expand_real(bindings: &mut MacroContext, mut source: Vec<Sexpr>, macros: &HashSet<Macro>) -> Vec<Sexpr> {
-    let level = 0;
+fn expand_real(bindings: &mut MacroContext, mut source: Vec<Sexpr>, macros: &mut HashSet<Macro>) -> Vec<Sexpr> {
+    let mut output = Vec::new();
+    for sexpr in source {
+	expand_real_single(bindings, sexpr, macros, level, &mut output);
+    }
 }
 
-fn expand_sub(bindings: &mut MacroContext, source: &Vec<Sexpr>, macros: &HashSet<Macro>, level: usize, output: &mut Vec<Sexpr>) {
+fn expand_real_single(bindings: &mut MacroContext, sexpr: Sexpr, macros: &mut HashSet<Macro>, output: &mut Vec<Sexpr>) {
+    match sexpr {
+	Sexpr::List(l) => {
+	    expand_list(bindings, l, macros, level, output);
+	},
+	x => {
+	    output.push(x);
+	},
+    }
 }
+
+fn expand_list(bindings: &mut MacroContext, list: Vec<Sexpr>, macros: &mut HashSet<Macro>, output: &mut Vec<Sexpr>) {
+    if list.is_empty() {
+	return;
+    }
+    if let Sexpr::Atom(Atom::Symbol(s)) = &list[0] {
+	match s[0].as_str() {
+	    "define" => {
+		let body = expand_define(bindings, list, macros, output);
+		list[2] = body;
+		output.push(Sexpr::List(list));
+	    },
+	    "define-syntax-rule" => expand_define_syntax_rule(bindings, list, macros, output),
+	    _ => try_expand_macro(bindings, list, macros, level, output),
+	}
+    }
+}
+
+fn expand_define(bindings: &mut MacroContext, list: Vec<Sexpr>, macros: &mut HashSet<Macro>) -> Sexpr {
+    match *list.into_boxed_slice() {
+	[_, Sexpr::Atom(Atom::Symbol(s)), body] => {
+	    bindings.push();
+	    let out = match body {
+		Sexpr::Atom(_) => body,
+		Sexpr::List(_) => {
+		    expand_real(bindings, body, macros);
+		    Sexpr::List(out)
+		},
+	    }; 
+	    bindings.pop();
+	    bindings.bind(s);
+	    out
+	},
+	[_, Sexpr::List(l), body] => {
+	    bindings.bind(&l[0]);
+	    bindings.push();
+	    for sexpr in l.iter().skip(1) {
+		match sexpr {
+		    Sexpr::Atom(Atom::Symbol(s)) => {
+			bindings.bind(s);
+		    },
+		    _ => todo!("make an error"),
+		}
+	    }
+	    let out = match body {
+		Sexpr::Atom(_) => body,
+		Sexpr::List(_) => {
+		    expand_real(bindings, body, macros);
+		    Sexpr::List(out)
+		},
+	    };
+	    bindings.pop();
+	    return out;
+	},
+	_ => todo!("make an error"),
+    }
+}
+
+fn expand_define_syntax_rule(bindings: &mut MacroContext, list: Vec<Sexpr>, macros: &mut HashSet<Macro>, output: &mut Vec<Sexpr>) {
+    match *list.into_boxed_slice() {
+	[_, Sexpr::List(header), body] => {
+	    let new_body = expand_real(bindings, body, macros);
+	    let macro = Macro::new(header, new_body);
+	    macros.insert(macro);
+	},
+	_ => todo!("make an error"),
+    }
+}
+
+fn try_expand_macro(bindings: &mut MacroContext, list: Vec<Sexpr>, macros: &mut HashSet<Macro>, output: &mut Vec<Sexpr>) {
+    for macro in macros.iter() {
+	let output = macro.expand(bindings, list);
+	if let Some(output) = output {
+	    output.push(output);
+	    return;
+	}
+    }
+    output.push(Sexpr::List(list));
+}
+
