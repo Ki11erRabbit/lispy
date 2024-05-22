@@ -60,4 +60,11 @@
 (display "swapping\n")
 (swap y x)
 
+(call 'fib 10)
+
+(cond
+  [(= 1 2) (display "1=2\n")]
+  [(= 1 1) (display "1=1\n")]
+  [else (display "else\n")])
+
 (/ 1 0)

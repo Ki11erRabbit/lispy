@@ -569,12 +569,12 @@ impl Function {
 	}
     }
     
-    pub fn call(&self, name: &Vec<String>, list:&Vec<Sexpr>, context: &mut Context) -> InterpreterResult {
+    pub fn call(&self, name: &Vec<String>, list:&[Sexpr], context: &mut Context) -> InterpreterResult {
 	match self {
 	    Function::Tree(fun_args, body, frame, shape) => {
 		let mut args = Vec::new();
 		let mut keyword_args = std::collections::HashMap::new();
-		let mut iterator = list.iter().skip(1);
+		let mut iterator = list.iter();
 		while let Some(sexpr) = iterator.next() {
 		    match sexpr {
 			Sexpr::Atom(Atom::Keyword(k)) => {
@@ -621,7 +621,7 @@ impl Function {
 	    Function::Native(f, shape) => {
 		let mut args = Vec::new();
 		let mut keyword_args = std::collections::HashMap::new();
-		let mut iterator = list.iter().skip(1);
+		let mut iterator = list.iter();
 		while let Some(sexpr) = iterator.next() {
 		    match sexpr {
 			Sexpr::Atom(Atom::Keyword(k)) => {

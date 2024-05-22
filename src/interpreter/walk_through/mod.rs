@@ -118,6 +118,8 @@ fn walk_through_list(list: &Vec<Sexpr>, context: &mut Context) -> InterpreterRes
             "module" => walk_through_module(list, context),
             "try" => walk_through_try(list, context),
             "error" => walk_through_error(list, context),
+	    "cond" => walk_through_cond(list, context),
+	    "call" => walk_through_call_expr(list, context),
             _ => walk_through_call(list, context),
         }
     } else {
@@ -362,6 +364,64 @@ fn walk_through_error(list: &Vec<Sexpr>, context: &mut Context) -> InterpreterRe
     }
 }
 
+fn walk_through_cond(list: &Vec<Sexpr>, context: &mut Context) -> InterpreterResult {
+    match list.as_slice() {
+	[_, clauses @ ..] => {
+	    for clause in clauses {
+		let Sexpr::List(clause) = clause else {
+		    return Err(Box::new(Exception::new(&vec!["cond"], "unusual syntax 1", context)));
+		};
+		if clause.len() != 2 {
+		    return Err(Box::new(Exception::new(&vec!["cond"], "unusual syntax 2", context)));
+		}
+		match clause.as_slice() {
+		    [condition, body] => {
+			if let Sexpr::List(_) = condition {
+			    let condition = walk_through(condition, context)?.ok_or(Box::new(Exception::new(&vec!["cond"], "expression didn't result in a value", context)))?;
+			    if condition.get_boolean(context)? {
+				return walk_through(body, context);
+			    }
+			} else if let Sexpr::Atom(Atom::Symbol(keyword)) = condition {
+			    match keyword[0].as_str() {
+				"else" => return walk_through(body, context),
+				_ => return Err(Box::new(Exception::new(&vec!["cond"], "unusual syntax 3", context))),
+			    }
+			} else if let Sexpr::Atom(Atom::Boolean(b)) = condition {
+			    if *b {
+				return walk_through(body, context);
+			    }
+			} else {
+			    return Err(Box::new(Exception::new(&vec!["cond"], "unusual syntax 4", context)));
+			}
+		    }
+		    _ => return Err(Box::new(Exception::new(&vec!["cond"], "unusual syntax 5", context))),
+		}
+	    }
+	    Ok(None)
+	},
+	_ => Err(Box::new(Exception::new(&vec!["cond"], "unusual syntax 6", context))),
+    }
+}
+
+fn walk_through_call_expr(list: &Vec<Sexpr>, context: &mut Context) -> InterpreterResult {
+    match list.as_slice() {
+	[_, name, args @ ..] => {
+	    let name = walk_through(name, context)?.ok_or(Box::new(Exception::new(&vec!["call"], "not a symbol", context)))?;
+	    let name = name.get_symbol(context)?;
+
+	    let function = match context.get(&name) {
+		Some(f) => {
+		    f.get_function(context)?.clone()
+		},
+		None => return Err(Box::new(Exception::new(&name, "not bound", context)))
+	    };
+
+	    function.call(&name, &args.to_vec(), context)
+	}
+	_ => Err(Box::new(Exception::new(&vec!["call"], "unusual syntax", context))),
+    }
+}
+
 fn walk_through_call(list: &Vec<Sexpr>, context: &mut Context) -> InterpreterResult {
     if let Sexpr::Atom(Atom::Symbol(name)) = &list[0] {
         let function = match context.get(&name) {
@@ -371,7 +431,7 @@ fn walk_through_call(list: &Vec<Sexpr>, context: &mut Context) -> InterpreterRes
             None => return Err(Box::new(Exception::new(&name, "not bound", context)))
         };
 
-        function.call(&name, list, context)
+        function.call(&name, &list.as_slice()[1..], context)
 
     } else {
         let empty: Vec<&str> = Vec::new();
