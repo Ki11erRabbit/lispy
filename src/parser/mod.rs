@@ -1,3 +1,5 @@
+mod macro;
+
 use std::{str::FromStr, cell::RefCell};
 
 #[derive(Debug, PartialEq)]
