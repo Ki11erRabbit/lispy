@@ -201,7 +201,7 @@ fn walk_through_set(list: &Vec<Sexpr>, context: &mut Context) -> InterpreterResu
 	    let value = walk_through(value, context)?;
 	    match value {
 		Some(value) => {
-		    context.define(&name[0], value);
+		    context.rebind(&name[0], value);
 		    Ok(None)
 		}
 		None => {

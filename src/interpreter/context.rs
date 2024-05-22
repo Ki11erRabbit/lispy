@@ -119,6 +119,15 @@ impl Context {
 	self.frames.last_mut().unwrap().bindings.insert(name.to_string(), value);
     }
 
+    pub fn rebind(&mut self, name: &str, value: Value) {
+	for frame in self.frames.iter_mut().rev() {
+	    if frame.bindings.contains_key(name) {
+		frame.bindings.insert(name.to_string(), value);
+		return;
+	    }
+	}
+    }
+
     pub fn add_module(&mut self, name: &str, module: Module) {
 	self.modules.borrow_mut().insert(name.to_string(), module);
     }

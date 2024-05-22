@@ -19,6 +19,15 @@ impl File {
     }
 }
 
+impl std::fmt::Display for File {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+	for sexpr in self.body.iter() {
+	    write!(f, "{}\n", sexpr)?;
+	}
+	Ok(())
+    }
+}
+
 impl Iterator for File {
     type Item = Sexpr;
 
@@ -46,6 +55,41 @@ pub enum Atom {
     Null,
 }
 
+impl std::fmt::Display for Atom {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+	match self {
+	    Atom::String(s) => write!(f, "\"{}\"", s),
+	    Atom::Integer(i) => write!(f, "{}", *i),
+	    Atom::Float(fl) => write!(f, "{}", *fl),
+	    Atom::Boolean(b) => write!(f, "#{}", if *b { "t" } else { "f" }),
+	    Atom::Symbol(s) => {
+		for (i, s) in s.iter().enumerate() {
+		    if i == 0 {
+			write!(f, "{}", s)?;
+		    } else {
+			write!(f, ".{}", s)?;
+		    }
+		}
+		Ok(())
+	    },
+	    Atom::Keyword(k) => write!(f, ":{}", k),
+	    Atom::Char(c) => write!(f, "#\\{}", c),
+	    Atom::QuotedSymbol(s) => {
+		write!(f, "'")?;
+		for (i, s) in s.iter().enumerate() {
+		    if i == 0 {
+			write!(f, "{}", s)?;
+		    } else {
+			write!(f, ".{}", s)?;
+		    }
+		}
+		Ok(())
+	    },
+	    Atom::Null => write!(f, "null"),
+	}
+    }
+}
+
 impl Hash for Atom {
     fn hash<H: Hasher>(&self, state: &mut H) {
 	match self {
@@ -69,6 +113,35 @@ pub enum Sexpr {
     QuotedList(Vec<Sexpr>),
     VectorList(Vec<Sexpr>),
     
+}
+
+impl std::fmt::Display for Sexpr {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+	match self {
+	    Sexpr::Atom(a) => write!(f, "{}", a),
+	    Sexpr::List(l) => {
+		write!(f, "(")?;
+		for sexpr in l.iter() {
+		    write!(f, "{} ", sexpr)?;
+		}
+		write!(f, ")")
+	    },
+	    Sexpr::QuotedList(l) => {
+		write!(f, "'(")?;
+		for sexpr in l.iter() {
+		    write!(f, "{} ", sexpr)?;
+		}
+		write!(f, ")")
+	    },
+	    Sexpr::VectorList(l) => {
+		write!(f, "#(")?;
+		for sexpr in l.iter() {
+		    write!(f, "{} ", sexpr)?;
+		}
+		write!(f, ")")
+	    },
+	}
+	}
 }
 
 
@@ -171,7 +244,7 @@ peg::parser!{
 pub fn parse(input: &str) -> Result<File, peg::error::ParseError<peg::str::LineCol>> {
     parser::file(input).map(|f| {
 	let mut macros = HashSet::new();
-	let File { index, body } = f;
+	let File { body, .. } = f;
 	File::new(r#macro::expand(body, &mut macros))
     })
 }

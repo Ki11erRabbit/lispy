@@ -9,7 +9,7 @@
 (test.test)
 
 (thread.spawn (lambda () (display "thread\n")))
-(sleep 5)
+(sleep 2)
 
 (define l '(1 2 3 4))
 
@@ -45,5 +45,19 @@
 
 (try (error 'test "error") ([(catch 'test)
    (display "caught error\n")]))
+
+(display "making macro\n")
+(define-syntax-rule (swap x y)
+                    (let [(tmp x)]
+                      (begin
+                        (set! x y)
+                        (set! y tmp))))
+(display "done\n")
+(define x 1)
+(define y 2)
+(define tmp 0)
+
+(display "swapping\n")
+(swap y x)
 
 (/ 1 0)
