@@ -115,7 +115,7 @@ fn stdlib_thread_is_named_shape() -> FunctionShape {
     FunctionShape::new(vec![])
 }
 
-fn stdlib_thread_is_named(context: &mut Context, _: Vec<Value>, _: HashMap<String, Value>) -> HelperResult<Value> {
+fn stdlib_thread_is_named(_: &mut Context, _: Vec<Value>, _: HashMap<String, Value>) -> HelperResult<Value> {
     let output = match std::thread::current().name() {
 	Some(_) => {
 	    Value::new_boolean(true)

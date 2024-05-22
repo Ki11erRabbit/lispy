@@ -35,12 +35,28 @@ impl Value {
 	    raw,
 	}
     }
-	
     pub fn get_string(&self, context: &Context) -> HelperResult<&String> {
 	match self.raw {
 	    RawValue::Gc(ref gc) => {
 		match gc.get() {
 		    GcValue::String(ref s) => Ok(s),
+		    _ => {
+			let empty: Vec<&str> = Vec::new();
+			Err(Box::new(Exception::new(&empty, "not a string", context)))
+		    },
+		}
+	    },
+	    _ => {
+		let empty: Vec<&str> = Vec::new();
+		Err(Box::new(Exception::new(&empty, "not a string", context)))
+	    },
+	}
+    }
+    pub fn get_string_mut(&mut self, context: &Context) -> HelperResult<&mut String> {
+	match self.raw {
+	    RawValue::Gc(ref mut gc) => {
+		match gc.get_mut() {
+		    GcValue::String(ref mut s) => Ok(s),
 		    _ => {
 			let empty: Vec<&str> = Vec::new();
 			Err(Box::new(Exception::new(&empty, "not a string", context)))
@@ -68,6 +84,11 @@ impl Value {
     pub fn new_integer(value: &str) -> Self {
 	Value {
 	    raw: RawValue::Integer(Integer::from_str_radix(value, 10).unwrap()),
+	}
+    }
+    pub fn new_integer_from_usize(value: usize) -> Self {
+	Value {
+	    raw: RawValue::Integer(Integer::from(value)),
 	}
     }
     pub fn new_integer_from_integer(value: Integer) -> Self {
@@ -222,7 +243,7 @@ impl Value {
 	let empty: Vec<&str> = Vec::new();
 	match self.raw {
 	    RawValue::Gc(ref mut gc) => {
-		match gc.get() {
+		match gc.get_mut() {
 		    GcValue::Vector(ref mut v) => Ok(v),
 		    _ => Err(Box::new(Exception::new(&empty, "not a vector", context))),
 		}
@@ -265,7 +286,7 @@ impl Value {
 	let empty: Vec<&str> = Vec::new();
 	match self.raw {
 	    RawValue::Gc(ref mut gc) => {
-		match gc.get() {
+		match gc.get_mut() {
 		    GcValue::Pair((ref mut car, ref mut cdr)) => Ok((car, cdr)),
 		    _ => Err(Box::new(Exception::new(&empty, "not a pair", context))),
 		}
