@@ -9,7 +9,7 @@ pub mod walk_through;
 pub mod context;
 pub mod value;
 pub mod module;
-
+pub mod macro;
 
 pub type InterpreterResult = Result<Option<Value>, Box<Exception>>;
 pub type HelperResult<T> = std::result::Result<T, Box<Exception>>;
