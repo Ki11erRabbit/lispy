@@ -1,15 +1,15 @@
 
 (import "mod.scm" 'mod)
 
-(mod.test)
+;(mod.test)
 
 (module 'test 
         (define (test) (display "test\n")))
    
-(test.test)
-
+#;(test.test)
+#|
 (thread.spawn (lambda () (display "thread\n")))
-
+|#
 (define l '(1 2 3 4))
 
 (define x 10)

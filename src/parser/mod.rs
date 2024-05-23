@@ -169,7 +169,11 @@ peg::parser!{
 		} else if s.chars().nth(0) == Some('\'') {
 		    Err("not symbol but a quoted list")
 		} else {
-	            Ok(s.to_string())
+		    match s {
+			"null" => Err("not symbol but null"),
+			"#|" => Err("not symbol but comment"),
+			_ => Ok(s.to_string()),
+		    }
 		}
 	    }
 	pub(crate) rule scoped_symbol() -> Vec<String>
@@ -244,12 +248,12 @@ peg::parser!{
 	    / a:atom() { Sexpr::Atom(a) }
 	/ l:list() { Sexpr::List(l) }
 	rule comment() -> FileObject
-	    = ";" [_]* ['\n'] { FileObject::Comment }
+	    = ";" [^'\n']* ['\n'] { FileObject::Comment }
 	/ "#;" sexpr() { FileObject::Comment }
 	/ "#|" [_]* "|#" { FileObject::Comment }
 	rule file_sexpr() -> FileObject
-	    = s:sexpr() { FileObject::Sexpr(s) }
-	/ c:comment() { c }
+	= c:comment() { c }
+	    / s:sexpr() { FileObject::Sexpr(s) }
 	pub rule file() -> ProtoFile
 	    = [' '|'\t'|'\n'|'\r']* b:(file_sexpr() ** ([' '|'\t'|'\n'|'\r']*)) [' '|'\t'|'\n'|'\r']* { ProtoFile { body: b } }
     }
