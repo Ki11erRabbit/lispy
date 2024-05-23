@@ -1,12 +1,15 @@
 use rug::Integer;
 use std::collections::HashMap;
 use std::any::Any;
+use std::rc::Rc;
+use std::sync::Arc;
 use crate::parser::Atom;
 use crate::parser::Sexpr;
 use crate::interpreter::{self, HelperResult};
 
 use crate::gc::Gc;
 
+use super::bytecode::Bytecode;
 use super::{context::{ContextFrame, Context}, Exception, InterpreterResult};
 
 
@@ -369,6 +372,37 @@ impl Value {
 	}
     }
 
+    pub fn new_struct(s: Struct, context: &Context) -> Self {
+	let gc_object = Gc::new(GcValue::Struct(s));
+	context.send_gc(gc_object.clone());
+	Value {
+	    raw: RawValue::Gc(gc_object),
+	}
+    }
+    pub fn is_struct(&self) -> bool {
+	match self.raw {
+	    RawValue::Gc(ref r) => {
+		match r.get() {
+		    GcValue::Struct(_) => true,
+		    _ => false,
+		}
+	    },
+	    _ => false,
+	}
+    }
+    pub fn get_struct(&self, context: &Context) -> HelperResult<&Struct> {
+	let empty: Vec<&str> = Vec::new();
+	match self.raw {
+	    RawValue::Gc(ref gc) => {
+		match gc.get() {
+		    GcValue::Struct(ref s) => Ok(s),
+		    _ => Err(Box::new(Exception::new(&empty, "not a struct", context))),
+		}
+	    }
+	    _ => Err(Box::new(Exception::new(&empty, "not a struct", context))),
+	}
+    }
+
     pub fn new_nil() -> Self {
 	Value {
 	    raw: RawValue::Nil,
@@ -396,7 +430,7 @@ impl Value {
 			    Function::Tree(_, _, frame, _) => {
 				frame.mark();
 			    }
-			    Function::Native(_, _) => {},
+			    _ => {}
 			}
 		    },
 		    GcValue::Pair((ref car, ref cdr)) => {
@@ -426,7 +460,7 @@ impl Value {
 			    Function::Tree(_, _, frame, _) => {
 				frame.unmark();
 			    }
-			    Function::Native(_, _) => {},
+			    _ => {},
 			}
 		    },
 		    GcValue::Pair((ref car, ref cdr)) => {
@@ -460,6 +494,7 @@ impl Value {
 		    GcValue::Vector(_) => 7,
 		    GcValue::Symbol(_) => 5,
 		    GcValue::RustValue(_) => 11,
+		    GcValue::Struct(s) => s.name_index ,
 		}
 	    },
 	    RawValue::Integer(_) => 2,
@@ -528,6 +563,7 @@ pub enum GcValue {
     Vector(Vec<Value>),
     Symbol(Vec<String>),
     RustValue(Box<dyn Any>),
+    Struct(Struct),
 }
 
 impl std::fmt::Display for GcValue {
@@ -562,7 +598,10 @@ impl std::fmt::Display for GcValue {
 		write!(f, "'{}", s.join("."))
 	    },
 	    GcValue::RustValue(_) => {
-	 	write!(f, "<rust value>")
+		write!(f, "<rust value>")
+	    },
+	    GcValue::Struct(_) => {
+		write!(f, "<struct>")
 	    },
 	}
     }
@@ -578,6 +617,8 @@ impl std::fmt::Debug for GcValue {
 pub enum Function {
     Tree(Vec<String>, Sexpr, ContextFrame, FunctionShape),
     Native(fn(&mut Context, Vec<Value>, HashMap<String, Value>) -> HelperResult<Value>, FunctionShape),
+    Bytecode(Vec<String>, Vec<Bytecode>, FunctionShape),
+    //NativeClosure(Box<dyn Fn(&mut Context, Vec<Value>, HashMap<String, Value>) -> HelperResult<Value>>, FunctionShape),
 }
 
 impl Function {
@@ -590,7 +631,7 @@ impl Function {
 	}
     }
     
-    pub fn call(&self, name: &Vec<String>, list:&[Sexpr], context: &mut Context) -> InterpreterResult {
+    pub fn call(&self, name: &Vec<String>, list: &[Sexpr], context: &mut Context) -> InterpreterResult {
 	match self {
 	    Function::Tree(fun_args, body, frame, shape) => {
 		let mut args = Vec::new();
@@ -673,10 +714,118 @@ impl Function {
 		}
 		shape.check(&name, &args, &keyword_args, context)?;
 		Ok(Some(f(context, args, keyword_args)?))
-	    }
+	    },
+	    Function::Bytecode(fun_args, bytecode, shape) => {
+		let mut args = Vec::new();
+		let mut keyword_args = std::collections::HashMap::new();
+		let mut iterator = list.iter();
+		while let Some(sexpr) = iterator.next() {
+		    match sexpr {
+			Sexpr::Atom(Atom::Keyword(k)) => {
+			    if let Some(value) = iterator.next() {
+				match interpreter::walk_through::walk_through(value, context)? {
+				    Some(value) => {
+					keyword_args.insert(k.clone(), value);
+				    }
+				    None => {
+					return Err(Box::new(Exception::new(&name, "expression didn't result in a value", context)));
+				    }
+				}
+			    } else {
+				return Err(Box::new(Exception::new(&name, "unusual syntax", context)));
+			    }
+			}
+			s => {
+			    match interpreter::walk_through::walk_through(s, context)? {
+				Some(value) => {
+				    args.push(value);
+				}
+				None => {
+				    return Err(Box::new(Exception::new(&name, "expression didn't result in a value", context)));
+				}
+			    }
+			}
+		    }
+		}
+		shape.check(&name, &args, &keyword_args, context)?;
+
+		context.push_frame(None);
+
+		for (arg, value) in fun_args.iter().zip(args.iter()) {
+		    context.define(arg, value.clone());
+		}
+		for (arg, value) in keyword_args.iter() {
+		    context.define(arg, value.clone());
+		}
+		
+        
+		let value = interpreter::bytecode::run(&bytecode.as_slice(), context);
+		context.pop_frame();
+		value
+	    },
 	}
     }
+
+    pub fn call_from_bytecode(&self, name: &Vec<String>, args: Vec<Value>, kargs: HashMap<String, Value>, context: &mut Context) -> InterpreterResult {
+	match self {
+	    Function::Tree(fun_args, body, frame, shape) => {
+		context.push_frame(Some(frame.clone()));
+
+		for (arg, value) in fun_args.iter().zip(args.iter()) {
+		    context.define(arg, value.clone());
+		}
+		for (arg, value) in kargs.iter() {
+		    context.define(arg, value.clone());
+		}
+
+		shape.check(&name, &args, &kargs, context)?;
+        
+		let value = interpreter::walk_through::walk_through(&body, context);
+		context.pop_frame();
+		value
+	    },
+	    Function::Native(f, shape) => {
+		shape.check(&name, &args, &kargs, context)?;
+		Ok(Some(f(context, args, kargs)?))
+	    }
+	    Function::Bytecode(fun_args, bytecode, shape) => {
+		context.push_frame(None);
+
+		for (arg, value) in fun_args.iter().zip(args.iter()) {
+		    context.define(arg, value.clone());
+		}
+		for (arg, value) in kargs.iter() {
+		    context.define(arg, value.clone());
+		}
+
+		shape.check(&name, &args, &kargs, context)?;
+
+		let value = interpreter::bytecode::run(&bytecode.as_slice(), context);
+		context.pop_frame();
+		value
+	    },
+	}
+    }
+
 }
+
+/*impl Clone for Function {
+    fn clone(&self) -> Self {
+	match self {
+	    Function::Tree(args, body, frame, shape) => {
+		Function::Tree(args.clone(), body.clone(), frame.clone(), shape.clone())
+	    },
+	    Function::Native(f, shape) => {
+		Function::Native(*f, shape.clone())
+	    },
+	    Function::NativeClosure(f, shape) => {
+		let raw = Box::into_raw(*f);
+		let f = unsafe { Box::from_raw(raw) };
+		Function::NativeClosure(f, shape.clone())
+	    },
+	}
+    }
+}*/
 
 #[derive(Clone)]
 pub struct FunctionShape {
@@ -707,4 +856,92 @@ impl FunctionShape {
 
 	Ok(())
     }
+}
+
+pub struct Struct {
+    name_index: usize,
+    members: Box<[Value]>,
+}
+
+impl Struct {
+    pub fn new(name_index: usize, members: Box<[Value]>) -> Self {
+	Struct {
+	    name_index,
+	    members,
+	}
+    }
+
+    pub fn get_member(&self, index: usize, context: &Context) -> HelperResult<&Value> {
+	let empty: Vec<&str> = Vec::new();
+	if index >= self.members.len() {
+	    Err(Box::new(Exception::new(&empty, "index out of bounds", context)))
+	} else {
+	    Ok(&self.members[index])
+	}
+    }
+    /*pub fn create_functions(name: Vec<String>, member_names: Vec<Vec<String>>, context: &mut Context) {
+	let mut functions = HashMap::new();
+	let constructor_shape = FunctionShape::new(member_names.iter().map(|v| v.join(".")).collect());
+	let constructor = |context: &mut Context, args: Vec<Value>, keyword_args: HashMap<String, Value>| -> HelperResult<Value> {
+	    let mut index = 0;
+	    let mut members = Vec::new();
+	    for arg in args {
+		index += 1;
+		members.push(arg);
+	    }
+	    for member in member_names.iter().skip(index) {
+		if let Some(value) = keyword_args.get(&member.join(".")) {
+		    members.push(value.clone());
+		} else {
+		    let empty: Vec<&str> = Vec::new();
+		    return Err(Box::new(Exception::new(&empty, "missing keyword argument", context)));
+		}
+	    }
+	    Ok(Value::new_struct(Struct {
+		name_index: context.get_or_create_type_symbol(&name.clone()),
+		members: members.into_boxed_slice(),
+	    }, context))
+	};
+	functions.insert(name, Value::new_function(Function::NativeClosure(Box::new(constructor), constructor_shape), context));
+	
+	let mut accessor_shapes = Vec::new();
+	let mut member_names = member_names.iter().map(|m| (*m).clone()).collect::<Vec<Vec<String>>>();
+	for member in member_names.iter_mut() {
+	    let new_end = name.last().cloned().unwrap() + "-" + member.last_mut().unwrap();
+	    *member.last_mut().unwrap() = new_end;
+	    accessor_shapes.push(FunctionShape::new(member.clone()));
+	}
+
+	for (i, member) in member_names.iter().enumerate() {
+	    let accessor = |context: &mut Context, args: Vec<Value>, keyword_args: HashMap<String, Value>| -> HelperResult<Value> {
+		let mut index = 0;
+		let mut members = Vec::new();
+		for arg in args {
+		    index += 1;
+		    members.push(arg);
+		}
+		for member in member_names.iter().skip(index) {
+		    if let Some(value) = keyword_args.get(&member.join(".")) {
+			members.push(value.clone());
+		    } else {
+			let empty: Vec<&str> = Vec::new();
+			return Err(Box::new(Exception::new(&empty, "missing keyword argument", context)));
+		    }
+		}
+		Ok(members[i].clone())
+	    };
+	    functions.insert((*member).clone(), Value::new_function(Function::NativeClosure(Box::new(accessor), accessor_shapes[i].clone()), context));
+	}
+
+	for (name, function) in functions {
+	    context.define(&name[0], function);
+	}
+    }*/
+
+}
+
+pub struct Enum {
+    name_index: usize,
+    variant_index: usize,
+    members: Struct,
 }

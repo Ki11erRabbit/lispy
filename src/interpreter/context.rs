@@ -56,6 +56,7 @@ pub struct Context {
     modules: RefCell<HashMap<String, Module>>,
     frames: Vec<ContextFrame>,
     type_table: Arc<RwLock<Vec<Value>>>,
+    symbols_to_table: Arc<RwLock<HashMap<Vec<String>, usize>>>,
 }
 
 impl Context {
@@ -66,6 +67,7 @@ impl Context {
 	    modules: RefCell::new(HashMap::new()),
 	    frames: vec![],
 	    type_table: Arc::new(RwLock::new(Vec::new())),
+	    symbols_to_table: Arc::new(RwLock::new(HashMap::new())),
 	};
 	let string_name = Value::new_symbol(vec!["string".to_string()], &mut ctx);
 	let integer_name = Value::new_symbol(vec!["integer".to_string()], &mut ctx);
@@ -98,6 +100,7 @@ impl Context {
 	    modules: RefCell::new(HashMap::new()),
 	    frames: vec![],
 	    type_table: Arc::new(RwLock::new(Vec::new())),
+	    symbols_to_table: Arc::new(RwLock::new(HashMap::new())),
 	};
 	
 	let stdlib = get_stdlib(&mut ctx);
@@ -154,6 +157,17 @@ impl Context {
 	self.frames.last_mut().unwrap().bindings.insert(name.to_string(), value);
     }
 
+    pub fn bind(&mut self, name: &Vec<String>, value: Value) {
+	if name.len() == 1 {
+	    self.define(&name[0], value);
+	} else {
+	    if let Some(module) = self.modules.borrow_mut().get_mut(&name[0]) {
+		todo!("bind to module");
+		//module.bind(&name.as_slice()[1..], value, self);
+	    }
+	}
+    }
+
     pub fn rebind(&mut self, name: &str, value: Value) {
 	for frame in self.frames.iter_mut().rev() {
 	    if frame.bindings.contains_key(name) {
@@ -193,6 +207,40 @@ impl Context {
 	}
 	
     }
+    
+    pub fn garbage_collect_vm(&mut self, stack: &mut Vec<Value>) {
+	let lock = self.gc_lock.read().unwrap();
+	for frame in self.frames.iter_mut() {
+	    frame.mark();
+	}
+	for (_, module) in self.modules.borrow_mut().iter_mut() {
+	    module.mark();
+	}
+	for value in self.type_table.write().unwrap().iter() {
+	    value.mark();
+	}
+	for value in stack.iter() {
+	    value.mark();
+	}
+	
+	drop(lock);
+	while gc::is_gc_on() {
+
+	}
+	for frame in self.frames.iter_mut() {
+	    frame.unmark();
+	}
+	for (_, module) in self.modules.borrow_mut().iter_mut() {
+	    module.unmark();
+	}
+	for value in self.type_table.write().unwrap().iter() {
+	    value.unmark();
+	}
+	for value in stack.iter() {
+	    value.unmark();
+	}
+	
+    }
 
     pub fn send_gc(&self, gc: Gc<GcValue>) {
 	self.sender.send(gc).unwrap();
@@ -219,6 +267,19 @@ impl Context {
     pub fn get_type_symbol(&self, index: usize) -> Value {
 	self.type_table.read().unwrap()[index].clone()
     }
+
+    pub fn get_or_create_type_symbol(&self, name: &Vec<String>) -> usize {
+	if let Some(index) = self.symbols_to_table.read().unwrap().get(name) {
+	    *index
+	} else {
+	    let mut type_table = self.type_table.write().unwrap();
+	    let index = type_table.len();
+	    let symbol = Value::new_symbol(name.clone(), self);
+	    type_table.push(symbol.clone());
+	    self.symbols_to_table.write().unwrap().insert(name.clone(), index);
+	    index
+	}
+    }
 	
 }
 
@@ -233,6 +294,7 @@ impl Clone for Context {
 	    modules: RefCell::new(HashMap::new()),
 	    frames: Vec::new(),
 	    type_table: self.type_table.clone(),
+	    symbols_to_table: self.symbols_to_table.clone(),
 	}
     }
 }

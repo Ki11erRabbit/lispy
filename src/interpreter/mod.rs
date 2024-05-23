@@ -5,6 +5,7 @@ use self::context::Context;
 
 
 pub mod walk_through;
+pub mod bytecode;
 
 pub mod context;
 pub mod value;

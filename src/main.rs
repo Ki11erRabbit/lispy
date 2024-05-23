@@ -2,7 +2,7 @@ pub mod parser;
 pub mod interpreter;
 pub mod stdlib;
 pub mod gc;
-fn main() -> Result<(), Box<dyn std::error::Error>>{
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args: Vec<String> = std::env::args().collect();
 
     let file_content = std::fs::read_to_string(&args[1])?;
@@ -22,5 +22,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
 
     interpreter::walk_through::run(file, &mut context)?;
 
-    Ok(())
+    std::process::exit(0);// Somehow this is needed because the program just blocks for some reason
+    //Ok(())
 }
