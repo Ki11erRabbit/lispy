@@ -269,9 +269,11 @@ impl Context {
     }
 
     pub fn get_or_create_type_symbol(&self, name: &Vec<String>) -> usize {
-	if let Some(index) = self.symbols_to_table.read().unwrap().get(name) {
+	let read_lock = self.symbols_to_table.read().unwrap();
+	if let Some(index) = read_lock.get(name) {
 	    *index
 	} else {
+	    drop(read_lock);
 	    let mut type_table = self.type_table.write().unwrap();
 	    let index = type_table.len();
 	    let symbol = Value::new_symbol(name.clone(), self);

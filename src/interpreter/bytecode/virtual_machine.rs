@@ -42,30 +42,38 @@ impl<'a> VirtualMachine<'a> {
 	    match instruction.get_raw() {
 		RawBytecode::PushString(s) => {
 		    self.stack.push(Value::new_string(s, context));
+		    self.pc += 1;
 		}
 		RawBytecode::PushInteger(i) => {
 		    self.stack.push(Value::new_integer(i));
+		    self.pc += 1;
 		}
 		RawBytecode::PushFloat(f) => {
 		    self.stack.push(Value::new_float(*f));
+		    self.pc += 1;
 		}
 		RawBytecode::PushBoolean(b) => {
 		    self.stack.push(Value::new_boolean(*b));
+		    self.pc += 1;
 		}
 		RawBytecode::PushSymbol(s) => {
 		    self.stack.push(Value::new_symbol(s.clone(), context));
+		    self.pc += 1;
 		}
 		RawBytecode::PushChar(c) => {
 		    self.stack.push(Value::new_char(*c));
+		    self.pc += 1;
 		}
 		RawBytecode::Pop => {
 		    self.stack.pop();
+		    self.pc += 1;
 		}
 		RawBytecode::Store => {
 		    let symbol = self.stack.pop().expect("stack is empty");
 		    let value = self.stack.pop().expect("stack is empty");
 		    let symbol = symbol.get_symbol(context)?;
 		    context.bind(symbol, value);
+		    self.pc += 1;
 		}
 		RawBytecode::Load => {
 		    let symbol = self.stack.pop().expect("stack is empty");
@@ -74,6 +82,7 @@ impl<'a> VirtualMachine<'a> {
 			return Err(Box::new(Exception::new(symbol, "symbol not found", context)));
 		    };
 		    self.stack.push(value);
+		    self.pc += 1;
 		}
 		RawBytecode::BindKeyword => {
 		    let value = self.stack.pop().expect("stack is empty");
@@ -85,6 +94,7 @@ impl<'a> VirtualMachine<'a> {
 			keywords.insert(keyword.get_symbol(context)?.last().unwrap().clone(), value);
 			self.keywords = Some(keywords);
 		    }
+		    self.pc += 1;
 		}
 		RawBytecode::Call(arg_count) => {
 		    let function = self.stack.pop().expect("stack is empty");
@@ -103,6 +113,7 @@ impl<'a> VirtualMachine<'a> {
 		    if let Some(result) = result {
 			self.stack.push(result);
 		    }
+		    self.pc += 1;
 		}
 		RawBytecode::Return => {
 		    return Ok(self.stack.pop());
@@ -117,6 +128,7 @@ impl<'a> VirtualMachine<'a> {
 
 		    let structure = Struct::new(context.get_or_create_type_symbol(name), fields.into_boxed_slice());
 		    self.stack.push(Value::new_struct(structure, context));
+		    self.pc += 1;
 		}
 		RawBytecode::StructAccess => {
 		    let index = self.stack.pop().expect("stack is empty");
@@ -124,6 +136,7 @@ impl<'a> VirtualMachine<'a> {
 		    let structure = self.stack.pop().expect("stack is empty");
 		    let structure = structure.get_struct(context)?;
 		    self.stack.push(structure.get_member(index.to_u64().unwrap() as usize, context)?.clone());
+		    self.pc += 1;
 		}
 		    
 	    }

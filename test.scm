@@ -67,4 +67,8 @@
   [(= 1 1) (display "1=1\n")]
   [else (display "else\n")])
 
+(struct point (x y))
+
+(point-x (point 1 2))
+
 (/ 1 0)

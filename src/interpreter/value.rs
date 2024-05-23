@@ -1,11 +1,10 @@
 use rug::Integer;
 use std::collections::HashMap;
 use std::any::Any;
-use std::rc::Rc;
-use std::sync::Arc;
 use crate::parser::Atom;
 use crate::parser::Sexpr;
 use crate::interpreter::{self, HelperResult};
+use crate::interpreter::bytecode::RawBytecode;
 
 use crate::gc::Gc;
 
@@ -747,6 +746,7 @@ impl Function {
 			}
 		    }
 		}
+		
 		shape.check(&name, &args, &keyword_args, context)?;
 
 		context.push_frame(None);
@@ -789,6 +789,8 @@ impl Function {
 		Ok(Some(f(context, args, kargs)?))
 	    }
 	    Function::Bytecode(fun_args, bytecode, shape) => {
+		shape.check(&name, &args, &kargs, context)?;
+
 		context.push_frame(None);
 
 		for (arg, value) in fun_args.iter().zip(args.iter()) {
@@ -797,8 +799,6 @@ impl Function {
 		for (arg, value) in kargs.iter() {
 		    context.define(arg, value.clone());
 		}
-
-		shape.check(&name, &args, &kargs, context)?;
 
 		let value = interpreter::bytecode::run(&bytecode.as_slice(), context);
 		context.pop_frame();
@@ -858,6 +858,12 @@ impl FunctionShape {
     }
 }
 
+impl std::fmt::Display for FunctionShape {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+	write!(f, "({})", self.args.join(" "))
+    }
+}
+
 pub struct Struct {
     name_index: usize,
     members: Box<[Value]>,
@@ -877,6 +883,40 @@ impl Struct {
 	    Err(Box::new(Exception::new(&empty, "index out of bounds", context)))
 	} else {
 	    Ok(&self.members[index])
+	}
+    }
+
+    pub fn create_functions(name: &Vec<String>, member_names: Vec<Vec<String>>, context: &mut Context) {
+	let constructor_shape = FunctionShape::new(member_names.iter().map(|v| v.join(".")).collect());
+	let mut constructor_bytecode = member_names.iter().map(|s| vec![
+	    Bytecode::new(RawBytecode::PushSymbol(s.clone()), 0, 0),
+	    Bytecode::new(RawBytecode::Load, 0, 0),
+	]).flatten().collect::<Vec<Bytecode>>();
+	constructor_bytecode.push(Bytecode::new(RawBytecode::PushSymbol(name.clone()), 0, 0));
+	constructor_bytecode.push(Bytecode::new(RawBytecode::MakeStruct(member_names.len()), 0, 0));
+	constructor_bytecode.push(Bytecode::new(RawBytecode::Return, 0, 0));
+	let constructor = Function::Bytecode(member_names.iter().map(|v| v.join(".")).collect(), constructor_bytecode, constructor_shape);
+	context.define(&name[0], Value::new_function(constructor, context));
+	context.get_or_create_type_symbol(&name);
+
+	let mut accessor_shapes = Vec::new();
+	let mut member_names = member_names.iter().map(|m| (*m).clone()).collect::<Vec<Vec<String>>>();
+	for member in member_names.iter_mut() {
+	    let new_end = name.last().cloned().unwrap() + "-" + member.last_mut().unwrap();
+	    *member.last_mut().unwrap() = new_end;
+	    accessor_shapes.push(FunctionShape::new(vec![name[0].clone()]));
+	}
+
+	for (i, member) in member_names.iter().enumerate() {
+	    let accessor_bytecode = vec![
+		Bytecode::new(RawBytecode::PushSymbol(name.clone()), 0, 0),
+		Bytecode::new(RawBytecode::Load, 0, 0),
+		Bytecode::new(RawBytecode::PushInteger(i.to_string()), 0, 0),
+		Bytecode::new(RawBytecode::StructAccess, 0, 0),
+		Bytecode::new(RawBytecode::Return, 0, 0),
+	    ];
+	    let accessor = Function::Bytecode(vec![name[0].clone()], accessor_bytecode, accessor_shapes[i].clone());
+	    context.define(&member[0], Value::new_function(accessor, context));
 	}
     }
     /*pub fn create_functions(name: Vec<String>, member_names: Vec<Vec<String>>, context: &mut Context) {

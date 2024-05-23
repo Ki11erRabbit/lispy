@@ -2,7 +2,7 @@ use crate::parser::{File, Sexpr, Atom};
 use super::Exception;
 use super::context::Context;
 use super::module::Module;
-use super::value::{Value, Function, FunctionShape};
+use super::value::{Value, Function, FunctionShape, Struct};
 use super::InterpreterResult;
 
 pub fn run(file: File, context: &mut Context) -> Result<(), Box<dyn std::error::Error>> {
@@ -120,6 +120,7 @@ fn walk_through_list(list: &Vec<Sexpr>, context: &mut Context) -> InterpreterRes
             "error" => walk_through_error(list, context),
 	    "cond" => walk_through_cond(list, context),
 	    "call" => walk_through_call_expr(list, context),
+	    "struct" => walk_through_struct(list, context),
             _ => walk_through_call(list, context),
         }
     } else {
@@ -421,6 +422,23 @@ fn walk_through_call_expr(list: &Vec<Sexpr>, context: &mut Context) -> Interpret
 	_ => Err(Box::new(Exception::new(&vec!["call"], "unusual syntax", context))),
     }
 }
+
+fn walk_through_struct(list: &Vec<Sexpr>, context: &mut Context) -> InterpreterResult {
+    match list.as_slice() {
+	[_, Sexpr::Atom(Atom::Symbol(name)), Sexpr::List(fields)] => {
+	    let fields = fields.iter().map(|sexpr| match sexpr {
+		Sexpr::Atom(Atom::Symbol(s)) => Ok(s.clone()),
+		_ => Err(Box::new(Exception::new(&vec!["struct"], "not a symbol", context))),
+	    }).collect::<Vec<Result<Vec<String>, Box<Exception>>>>();
+	    let fields = fields.into_iter().collect::<Result<Vec<Vec<String>>, Box<Exception>>>()?;
+
+	    Struct::create_functions(&name, fields, context);
+	    Ok(None)
+	},
+	_ => Err(Box::new(Exception::new(&vec!["struct"], "unusual syntax", context))),
+    }
+}
+	
 
 fn walk_through_call(list: &Vec<Sexpr>, context: &mut Context) -> InterpreterResult {
     if let Sexpr::Atom(Atom::Symbol(name)) = &list[0] {
