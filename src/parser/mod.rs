@@ -42,6 +42,15 @@ impl Iterator for File {
     }
 }
 
+pub struct ProtoFile {
+    body: Vec<FileObject>,
+}
+
+pub enum FileObject {
+    Sexpr(Sexpr),
+    Comment,
+}
+
 #[derive(Debug, PartialEq, Clone)]
 pub enum Atom {
     String(String),
@@ -233,18 +242,29 @@ peg::parser!{
 	    = q:quoted_list() { Sexpr::QuotedList(q) }
 	    / v:vector_list() { Sexpr::VectorList(v) }
 	    / a:atom() { Sexpr::Atom(a) }
-	    / l:list() { Sexpr::List(l) }
-
-	pub rule file() -> File
-	    = [' '|'\t'|'\n'|'\r']* b:(sexpr() ** ([' '|'\t'|'\n'|'\r']*)) [' '|'\t'|'\n'|'\r']* { File::new(b.into_iter().map(|a| a).collect()) }
-	    
+	/ l:list() { Sexpr::List(l) }
+	rule comment() -> FileObject
+	    = ";" [_]* ['\n'] { FileObject::Comment }
+	/ "#;" sexpr() { FileObject::Comment }
+	/ "#|" [_]* "|#" { FileObject::Comment }
+	rule file_sexpr() -> FileObject
+	    = s:sexpr() { FileObject::Sexpr(s) }
+	/ c:comment() { c }
+	pub rule file() -> ProtoFile
+	    = [' '|'\t'|'\n'|'\r']* b:(file_sexpr() ** ([' '|'\t'|'\n'|'\r']*)) [' '|'\t'|'\n'|'\r']* { ProtoFile { body: b } }
     }
 }
 
 pub fn parse(input: &str) -> Result<File, peg::error::ParseError<peg::str::LineCol>> {
     parser::file(input).map(|f| {
+	let file = File::new(f.body.into_iter().filter_map(|fo| {
+	    match fo {
+		FileObject::Sexpr(s) => Some(s),
+		FileObject::Comment => None,
+	    }
+	}).collect());
 	let mut macros = HashSet::new();
-	let File { body, .. } = f;
+	let File { body, .. } = file;
 	File::new(r#macro::expand(body, &mut macros))
     })
 }
