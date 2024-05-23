@@ -1046,20 +1046,32 @@ impl Enum {
 	}
     }
 
+    pub fn get_name_index(&self) -> usize {
+	self.name_index
+    }
+
+    pub fn get_variant_index(&self) -> usize {
+	self.variant_index
+    }
+
+    pub fn get_members(&self) -> &Box<[Value]> {
+	&self.members
+    }
+
     pub fn create_functions(name: &Vec<String>, variants: &Vec<Vec<String>>, member_names: Vec<Vec<Vec<String>>>, context: &mut Context) {
 	if variants.len() != member_names.len() {
 	    panic!("variants and member_names must have the same length");
 	}
-	context.get_or_create_type_symbol(&name);
+	context.get_or_create_type_symbol_enum(&name);
 	for (variant, member_names) in variants.iter().zip(member_names.iter()) {
-	    context.get_or_create_type_symbol(&variant);
+	    context.get_or_create_type_symbol_enum(&variant);
 	    let constructor_shape = FunctionShape::new(member_names.iter().map(|v| v.join(".")).collect());
 	    let mut constructor_bytecode = member_names.iter().map(|s| vec![
 		Bytecode::new(RawBytecode::PushSymbol(s.clone()), 0, 0),
 		Bytecode::new(RawBytecode::Load, 0, 0),
 	    ]).flatten().collect::<Vec<Bytecode>>();
-	    constructor_bytecode.push(Bytecode::new(RawBytecode::PushSymbol(name.clone()), 0, 0));
 	    constructor_bytecode.push(Bytecode::new(RawBytecode::PushSymbol(variant.clone()), 0, 0));
+	    constructor_bytecode.push(Bytecode::new(RawBytecode::PushSymbol(name.clone()), 0, 0));
 	    constructor_bytecode.push(Bytecode::new(RawBytecode::MakeEnum(member_names.len()), 0, 0));
 	    constructor_bytecode.push(Bytecode::new(RawBytecode::Return, 0, 0));
 	    let constructor = Function::Bytecode(member_names.iter().map(|v| v.join(".")).collect(), constructor_bytecode, constructor_shape);
@@ -1105,7 +1117,6 @@ impl Enum {
 		let setter_bytecode = vec![
 		    Bytecode::new(RawBytecode::PushSymbol(name.clone()), 0, 0),
 		    Bytecode::new(RawBytecode::Load, 0, 0),
-		    //Bytecode::new(RawBytecode::PushSymbol(variants[x].clone()), 0, 0),
 		    Bytecode::new(RawBytecode::PushSymbol(vec!["value".to_string()]), 0, 0),
 		    Bytecode::new(RawBytecode::Load, 0, 0),
 		    Bytecode::new(RawBytecode::PushInteger(i.to_string()), 0, 0),

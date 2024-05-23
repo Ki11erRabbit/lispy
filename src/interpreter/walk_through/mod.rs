@@ -122,6 +122,7 @@ fn walk_through_list(list: &Vec<Sexpr>, context: &mut Context) -> InterpreterRes
 	    "call" => walk_through_call_expr(list, context),
 	    "struct" => walk_through_struct(list, context),
 	    "enum" => walk_through_enum(list, context),
+	    "type-case" => walk_through_type_case(list, context),
             _ => walk_through_call(list, context),
         }
     } else {
@@ -474,6 +475,76 @@ fn walk_through_enum(list: &Vec<Sexpr>, context: &mut Context) -> InterpreterRes
 	},
 	_ => Err(Box::new(Exception::new(&vec!["enum"], "unusual syntax", context))),
     }
+}
+
+fn walk_through_type_case(list: &Vec<Sexpr>, context: &mut Context) -> InterpreterResult {
+    match list.as_slice() {
+	[_, value, cases @ ..] => {
+	    let value = walk_through(value, context)?.ok_or(Box::new(Exception::new(&vec!["type-case"], "not a value", context)))?;
+	    let value = value.clone();
+	    let value_type_index = value.get_type_index();
+	    for case in cases {
+		let Sexpr::List(case) = case else {
+		    return Err(Box::new(Exception::new(&vec!["type-case"], "unusual syntax 1", context)));
+		};
+		match case.as_slice() {
+		    [Sexpr::List(clause), body] => {
+			let [Sexpr::Atom(Atom::Symbol(type_name)), fields @ ..] = clause.as_slice() else {
+			    return Err(Box::new(Exception::new(&vec!["type-case"], "unusual syntax 3", context)));
+			};
+			let type_name_index = context.get_type_index(&type_name).unwrap();
+			if value_type_index == type_name_index {
+			    context.push_frame(None);
+			    if context.is_enum(context.get_type_index(&type_name).unwrap()) {
+				let Sexpr::Atom(Atom::Symbol(variant_name)) = &fields[0] else {
+				    return Err(Box::new(Exception::new(&vec!["type-case"], "unusual syntax 4", context)));
+				};
+				let enumeration = value.get_enum(context)?;
+				let variant_type_index = context.get_type_index(&variant_name).unwrap();
+				if enumeration.get_variant_index() != variant_type_index {
+				    context.pop_frame();
+				    continue;
+				}
+
+				for (i, field) in fields.iter().skip(1).enumerate() {
+				    let Sexpr::Atom(Atom::Symbol(field_name)) = field else {
+					return Err(Box::new(Exception::new(&vec!["type-case"], "unusual syntax 5", context)));
+				    };
+				    let field_value = enumeration.get_member(i, context)?;
+				    context.define(&field_name[0], field_value.clone());
+				}
+			    } else {
+				let structure = value.get_struct(context)?;
+				for (i, field) in fields.iter().enumerate() {
+				    let Sexpr::Atom(Atom::Symbol(field_name)) = field else {
+					return Err(Box::new(Exception::new(&vec!["type-case"], "unusual syntax 6", context)));
+				    };
+				    let field_value = structure.get_member(i, context)?;
+				    context.define(&field_name[0], field_value.clone());
+				}
+			    }
+			    let value = walk_through(body, context);
+			    context.pop_frame();
+			    return value;
+			} else {
+			    continue;
+			}
+		    },
+		    [Sexpr::Atom(Atom::Symbol(else_symbol)), body] => {
+			if else_symbol[0] != "else" {
+			    return Err(Box::new(Exception::new(&vec!["type-case"], "unusual syntax 7", context)));
+			}
+			let value = walk_through(body, context);
+			return value;
+		    },
+		    _ => return Err(Box::new(Exception::new(&vec!["type-case"], "unusual syntax 8", context))),
+		}
+	    }
+	    Err(Box::new(Exception::new(&vec!["type-case"], "no matching case and no else branch", context)))
+	}
+	_ => Err(Box::new(Exception::new(&vec!["type-case"], "unusual syntax 9", context))),
+    }
+    
 }
 	
 

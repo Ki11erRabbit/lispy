@@ -57,6 +57,7 @@ pub struct Context {
     frames: Vec<ContextFrame>,
     type_table: Arc<RwLock<Vec<Value>>>,
     symbols_to_table: Arc<RwLock<HashMap<Vec<String>, usize>>>,
+    enum_idicies: Arc<RwLock<HashSet<usize>>>,
 }
 
 impl Context {
@@ -68,6 +69,7 @@ impl Context {
 	    frames: vec![],
 	    type_table: Arc::new(RwLock::new(Vec::new())),
 	    symbols_to_table: Arc::new(RwLock::new(HashMap::new())),
+	    enum_idicies: Arc::new(RwLock::new(HashSet::new())),
 	};
 	let string_name = Value::new_symbol(vec!["string".to_string()], &mut ctx);
 	let integer_name = Value::new_symbol(vec!["integer".to_string()], &mut ctx);
@@ -101,6 +103,7 @@ impl Context {
 	    frames: vec![],
 	    type_table: Arc::new(RwLock::new(Vec::new())),
 	    symbols_to_table: Arc::new(RwLock::new(HashMap::new())),
+	    enum_idicies: Arc::new(RwLock::new(HashSet::new())),
 	};
 	
 	let stdlib = get_stdlib(&mut ctx);
@@ -282,6 +285,32 @@ impl Context {
 	    index
 	}
     }
+    pub fn get_or_create_type_symbol_enum(&self, name: &Vec<String>) -> usize {
+	let read_lock = self.symbols_to_table.read().unwrap();
+	if let Some(index) = read_lock.get(name) {
+	    *index
+	} else {
+	    drop(read_lock);
+	    let mut type_table = self.type_table.write().unwrap();
+	    let index = type_table.len();
+	    let symbol = Value::new_symbol(name.clone(), self);
+	    type_table.push(symbol.clone());
+	    self.symbols_to_table.write().unwrap().insert(name.clone(), index);
+	    self.enum_idicies.write().unwrap().insert(index);
+	    index
+	}
+    }
+
+    pub fn get_type_index(&self, name: &Vec<String>) -> Option<usize> {
+	let read_lock = self.symbols_to_table.read().unwrap();
+	let index = read_lock.get(name);
+	index.cloned()
+    }
+
+    pub fn is_enum(&self, index: usize) -> bool {
+	self.enum_idicies.read().unwrap().contains(&index)
+    }
+    
 	
 }
 
@@ -297,6 +326,7 @@ impl Clone for Context {
 	    frames: Vec::new(),
 	    type_table: self.type_table.clone(),
 	    symbols_to_table: self.symbols_to_table.clone(),
+	    enum_idicies: self.enum_idicies.clone(),
 	}
     }
 }

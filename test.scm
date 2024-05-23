@@ -9,7 +9,6 @@
 (test.test)
 
 (thread.spawn (lambda () (display "thread\n")))
-(sleep 2)
 
 (define l '(1 2 3 4))
 
@@ -73,6 +72,10 @@
 
 (point-x-set!(point 1 2) 4)
 
+(type-case (point 1 2)
+        [(point x y) (display "point\n")])
+
+
 (enum color 
     (rgb red green blue))
 
@@ -82,5 +85,9 @@
 (color-rgb-red (color-rgb 1 2 3))
 
 (color-rgb-red-set! (color-rgb 1 2 3) 2)
+
+(type-case (color-rgb 1 2 3)
+        [(color rgb r g b) (display "color\n")]
+        [else (display "else\n")])
 
 (/ 1 0)
