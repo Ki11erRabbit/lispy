@@ -71,4 +71,16 @@
 
 (point-x (point 1 2))
 
+(point-x-set!(point 1 2) 4)
+
+(enum color 
+    (rgb red green blue))
+
+
+(color-rgb 1 2 3)
+
+(color-rgb-red (color-rgb 1 2 3))
+
+(color-rgb-red-set! (color-rgb 1 2 3) 2)
+
 (/ 1 0)

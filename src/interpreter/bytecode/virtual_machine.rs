@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::interpreter::value::Struct;
+use crate::interpreter::value::{Struct, Enum};
 use crate::interpreter::{bytecode::Bytecode, value::Value, context::Context};
 use crate::interpreter::InterpreterResult;
 use crate::interpreter::bytecode::RawBytecode;
@@ -138,7 +138,46 @@ impl<'a> VirtualMachine<'a> {
 		    self.stack.push(structure.get_member(index.to_u64().unwrap() as usize, context)?.clone());
 		    self.pc += 1;
 		}
-		    
+		RawBytecode::StructStore => {
+		    let index = self.stack.pop().expect("stack is empty");
+		    let index = index.get_integer(context)?;
+		    let value = self.stack.pop().expect("stack is empty");
+		    let mut structure = self.stack.pop().expect("stack is empty");
+		    let structure = structure.get_struct_mut(context)?;
+		    structure.set_member(index.to_u64().unwrap() as usize, value.clone(), context)?;
+		    self.pc += 1;
+		}
+		RawBytecode::MakeEnum(field_count) => {
+		    let name = self.stack.pop().expect("stack is empty");
+		    let variant = self.stack.pop().expect("stack is empty");
+		    let variant = variant.get_symbol(context)?;
+		    let name = name.get_symbol(context)?;
+		    let mut fields = Vec::new();
+		    for _ in 0..*field_count {
+			fields.push(self.stack.pop().expect("stack is empty"));
+		    }
+
+		    let enumeration = Enum::new(context.get_or_create_type_symbol(name), context.get_or_create_type_symbol(variant), fields.into_boxed_slice());
+		    self.stack.push(Value::new_enum(enumeration, context));
+		    self.pc += 1;
+		},
+		RawBytecode::EnumAccess => {
+		    let index = self.stack.pop().expect("stack is empty");
+		    let index = index.get_integer(context)?;
+		    let enumeration = self.stack.pop().expect("stack is empty");
+		    let enumeration = enumeration.get_enum(context)?;
+		    self.stack.push(enumeration.get_member(index.to_u64().unwrap() as usize, context)?.clone());
+		    self.pc += 1;
+		},
+		RawBytecode::EnumStore => {
+		    let index = self.stack.pop().expect("stack is empty");
+		    let index = index.get_integer(context)?;
+		    let value = self.stack.pop().expect("stack is empty");
+		    let mut enumeration = self.stack.pop().expect("stack is empty");
+		    let enumeration = enumeration.get_enum_mut(context)?;
+		    enumeration.set_member(index.to_u64().unwrap() as usize, value.clone(), context)?;
+		    self.pc += 1;
+		},
 	    }
 	}
 	Ok(None)

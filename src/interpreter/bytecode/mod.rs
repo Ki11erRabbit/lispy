@@ -40,7 +40,12 @@ pub enum RawBytecode {
     Call(usize),
     Return,
     MakeStruct(usize),
-    StructAccess
+    StructAccess,
+    StructStore,
+    MakeEnum(usize),
+    EnumAccess,
+    EnumStore,
+
 }
 
 
