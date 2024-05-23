@@ -31,7 +31,7 @@ impl<'a> VirtualMachine<'a> {
 	}
     }
 
-    pub fn run(&mut self, context: &mut Context) -> InterpreterResult {
+    pub fn run(&mut self, context: &mut Context, module_name: &Vec<String>) -> InterpreterResult {
 	while self.pc < self.instructions.len() {
 	    
 	    if crate::gc::is_gc_on() {
@@ -78,7 +78,7 @@ impl<'a> VirtualMachine<'a> {
 		RawBytecode::Load => {
 		    let symbol = self.stack.pop().expect("stack is empty");
 		    let symbol = symbol.get_symbol(context)?;
-		    let Some(value) = context.get(symbol) else {
+		    let Some(value) = context.get(symbol, module_name) else {
 			return Err(Box::new(Exception::new(symbol, "symbol not found", context)));
 		    };
 		    self.stack.push(value);
@@ -109,7 +109,7 @@ impl<'a> VirtualMachine<'a> {
 			args.push(self.stack.pop().expect("stack is empty"));
 		    }
 		    //TODO add function name to call so that we can get the function name in the exception
-		    let result = function.call_from_bytecode(&vec![], args, kwarg, context)?;
+		    let result = function.call_from_bytecode(&vec![], args, kwarg, context, module_name)?;
 		    if let Some(result) = result {
 			self.stack.push(result);
 		    }

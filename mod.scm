@@ -1,5 +1,7 @@
 
 
+(define (print x)
+  (display x))
 
 (define (test)
-  (display "modules work!\n"))
+  (print "modules work!\n"))

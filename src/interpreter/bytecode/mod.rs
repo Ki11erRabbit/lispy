@@ -49,7 +49,7 @@ pub enum RawBytecode {
 }
 
 
-pub fn run(bytecode: &[Bytecode], context: &mut Context) -> InterpreterResult {
+pub fn run(bytecode: &[Bytecode], context: &mut Context, module_name: &Vec<String>) -> InterpreterResult {
     let mut vm = virtual_machine::VirtualMachine::new(bytecode);
-    vm.run(context)
+    vm.run(context, module_name)
 }

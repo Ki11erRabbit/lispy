@@ -1,8 +1,10 @@
-mod r#macro;
+pub mod r#macro;
 
 use std::collections::HashSet;
 use std::hash::{Hash, Hasher};
 use std::{str::FromStr, cell::RefCell};
+
+use self::r#macro::Macro;
 
 #[derive(Debug, PartialEq)]
 pub struct File {
@@ -250,7 +252,6 @@ peg::parser!{
 	rule comment() -> FileObject
 	    = ";" [^'\n']* ['\n'] { FileObject::Comment }
 	/ "#;" sexpr() { FileObject::Comment }
-	// "#|" [_]* "|#" { FileObject::Comment }
 	rule file_sexpr() -> FileObject
 	= c:comment() { c }
 	    / s:sexpr() { FileObject::Sexpr(s) }
@@ -259,7 +260,7 @@ peg::parser!{
     }
 }
 
-pub fn parse(input: &str) -> Result<File, peg::error::ParseError<peg::str::LineCol>> {
+pub fn parse(input: &str, macros: &mut HashSet<Macro>) -> Result<File, peg::error::ParseError<peg::str::LineCol>> {
     parser::file(input).map(|f| {
 	let file = File::new(f.body.into_iter().filter_map(|fo| {
 	    match fo {
@@ -267,9 +268,8 @@ pub fn parse(input: &str) -> Result<File, peg::error::ParseError<peg::str::LineC
 		FileObject::Comment => None,
 	    }
 	}).collect());
-	let mut macros = HashSet::new();
 	let File { body, .. } = file;
-	File::new(r#macro::expand(body, &mut macros))
+	File::new(r#macro::expand(body, macros))
     })
 }
 

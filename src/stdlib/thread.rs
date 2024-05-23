@@ -63,7 +63,7 @@ fn spawn_wrapper(context: &mut Context, function : Value, name: Option<String>) 
 	function.protect();
 	let mut new_context = new_context;
 	let function = function.get_function(&new_context).expect("function is not a function");
-        function.call(&vec!["<procedure>".to_string()], &vec![], &mut new_context)
+        function.call(&vec!["<procedure>".to_string()], &vec![], &mut new_context, &vec![])
     });
 
     let handle = Box::new(Some(handle));

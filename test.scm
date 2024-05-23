@@ -1,12 +1,12 @@
 
 (import "mod.scm" 'mod)
 
-;(mod.test)
+(mod.test)
 
 (module 'test 
         (define (test) (display "test\n")))
    
-#;(test.test)
+(test.test)
 
 (thread.spawn (lambda () (display "thread\n")))
 

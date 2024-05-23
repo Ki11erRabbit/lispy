@@ -689,7 +689,7 @@ impl Function {
 	}
     }
     
-    pub fn call(&self, name: &Vec<String>, list: &[Sexpr], context: &mut Context) -> InterpreterResult {
+    pub fn call(&self, name: &Vec<String>, list: &[Sexpr], context: &mut Context, module_name: &Vec<String>) -> InterpreterResult {
 	match self {
 	    Function::Tree(fun_args, body, frame, shape) => {
 		let mut args = Vec::new();
@@ -699,7 +699,7 @@ impl Function {
 		    match sexpr {
 			Sexpr::Atom(Atom::Keyword(k)) => {
 			    if let Some(value) = iterator.next() {
-				match interpreter::walk_through::walk_through(value, context)? {
+				match interpreter::walk_through::walk_through(value, context, module_name)? {
 				    Some(value) => {
 					keyword_args.insert(k.clone(), value);
 				    }
@@ -712,7 +712,7 @@ impl Function {
 			    }
 			}
 			s => {
-			    match interpreter::walk_through::walk_through(s, context)? {
+			    match interpreter::walk_through::walk_through(s, context, module_name)? {
 				Some(value) => {
 				    args.push(value);
 				}
@@ -733,8 +733,8 @@ impl Function {
 		for (arg, value) in keyword_args.iter() {
 		    context.define(arg, value.clone());
 		}
-        
-		let value = interpreter::walk_through::walk_through(&body, context);
+		let new_module_name = name.clone().into_iter().rev().skip(1).rev().collect();
+		let value = interpreter::walk_through::walk_through(&body, context, &new_module_name);
 		context.pop_frame();
 		value
 	    },
@@ -746,7 +746,7 @@ impl Function {
 		    match sexpr {
 			Sexpr::Atom(Atom::Keyword(k)) => {
 			    if let Some(value) = iterator.next() {
-				match interpreter::walk_through::walk_through(value, context)? {
+				match interpreter::walk_through::walk_through(value, context, module_name)? {
 				    Some(value) => {
 					keyword_args.insert(k.clone(), value);
 				    }
@@ -759,7 +759,7 @@ impl Function {
 			    }
 			}
 			s => {
-			    match interpreter::walk_through::walk_through(s, context)? {
+			    match interpreter::walk_through::walk_through(s, context, module_name)? {
 				Some(value) => {
 				    args.push(value);
 				}
@@ -781,7 +781,7 @@ impl Function {
 		    match sexpr {
 			Sexpr::Atom(Atom::Keyword(k)) => {
 			    if let Some(value) = iterator.next() {
-				match interpreter::walk_through::walk_through(value, context)? {
+				match interpreter::walk_through::walk_through(value, context, module_name)? {
 				    Some(value) => {
 					keyword_args.insert(k.clone(), value);
 				    }
@@ -794,7 +794,7 @@ impl Function {
 			    }
 			}
 			s => {
-			    match interpreter::walk_through::walk_through(s, context)? {
+			    match interpreter::walk_through::walk_through(s, context, module_name)? {
 				Some(value) => {
 				    args.push(value);
 				}
@@ -818,14 +818,15 @@ impl Function {
 		}
 		
         
-		let value = interpreter::bytecode::run(&bytecode.as_slice(), context);
+		let new_module_name = name.clone().into_iter().rev().skip(1).rev().collect();
+		let value = interpreter::bytecode::run(&bytecode.as_slice(), context, &new_module_name);
 		context.pop_frame();
 		value
 	    },
 	}
     }
 
-    pub fn call_from_bytecode(&self, name: &Vec<String>, args: Vec<Value>, kargs: HashMap<String, Value>, context: &mut Context) -> InterpreterResult {
+    pub fn call_from_bytecode(&self, name: &Vec<String>, args: Vec<Value>, kargs: HashMap<String, Value>, context: &mut Context, module_name: &Vec<String>) -> InterpreterResult {
 	match self {
 	    Function::Tree(fun_args, body, frame, shape) => {
 		context.push_frame(Some(frame.clone()));
@@ -839,7 +840,8 @@ impl Function {
 
 		shape.check(&name, &args, &kargs, context)?;
         
-		let value = interpreter::walk_through::walk_through(&body, context);
+		let new_module_name = name.clone().into_iter().rev().skip(1).rev().collect();
+		let value = interpreter::walk_through::walk_through(&body, context, &new_module_name);
 		context.pop_frame();
 		value
 	    },
@@ -859,7 +861,8 @@ impl Function {
 		    context.define(arg, value.clone());
 		}
 
-		let value = interpreter::bytecode::run(&bytecode.as_slice(), context);
+		let new_module_name = name.clone().into_iter().rev().skip(1).rev().collect();
+		let value = interpreter::bytecode::run(&bytecode.as_slice(), context, &new_module_name);
 		context.pop_frame();
 		value
 	    },
@@ -955,18 +958,19 @@ impl Struct {
 	}
     }
 
-    pub fn create_functions(name: &Vec<String>, member_names: Vec<Vec<String>>, context: &mut Context) {
+    pub fn create_functions(module_name: &Vec<String>, name: &Vec<String>, member_names: Vec<Vec<String>>, context: &mut Context) {
+	let type_name = module_name.iter().chain(name.iter()).map(|s| s.clone()).collect();
+	context.get_or_create_type_symbol(&type_name);
 	let constructor_shape = FunctionShape::new(member_names.iter().map(|v| v.join(".")).collect());
 	let mut constructor_bytecode = member_names.iter().map(|s| vec![
 	    Bytecode::new(RawBytecode::PushSymbol(s.clone()), 0, 0),
 	    Bytecode::new(RawBytecode::Load, 0, 0),
 	]).flatten().collect::<Vec<Bytecode>>();
-	constructor_bytecode.push(Bytecode::new(RawBytecode::PushSymbol(name.clone()), 0, 0));
+	constructor_bytecode.push(Bytecode::new(RawBytecode::PushSymbol(type_name.clone()), 0, 0));
 	constructor_bytecode.push(Bytecode::new(RawBytecode::MakeStruct(member_names.len()), 0, 0));
 	constructor_bytecode.push(Bytecode::new(RawBytecode::Return, 0, 0));
 	let constructor = Function::Bytecode(member_names.iter().map(|v| v.join(".")).collect(), constructor_bytecode, constructor_shape);
 	context.define(&name[0], Value::new_function(constructor, context));
-	context.get_or_create_type_symbol(&name);
 
 	let mut accessor_shapes = Vec::new();
 	let mut accessor_member_names = member_names.iter().map(|m| (*m).clone()).collect::<Vec<Vec<String>>>();
@@ -1058,20 +1062,22 @@ impl Enum {
 	&self.members
     }
 
-    pub fn create_functions(name: &Vec<String>, variants: &Vec<Vec<String>>, member_names: Vec<Vec<Vec<String>>>, context: &mut Context) {
+    pub fn create_functions(module_name: &Vec<String>, name: &Vec<String>, variants: &Vec<Vec<String>>, member_names: Vec<Vec<Vec<String>>>, context: &mut Context) {
 	if variants.len() != member_names.len() {
 	    panic!("variants and member_names must have the same length");
 	}
-	context.get_or_create_type_symbol_enum(&name);
+	let type_name = module_name.iter().chain(name.iter()).map(|s| s.clone()).collect();
+	context.get_or_create_type_symbol_enum(&type_name);
 	for (variant, member_names) in variants.iter().zip(member_names.iter()) {
+	    let variant_name: Vec<String> = module_name.iter().chain(variant.iter()).map(|s| s.clone()).collect();
 	    context.get_or_create_type_symbol_enum(&variant);
 	    let constructor_shape = FunctionShape::new(member_names.iter().map(|v| v.join(".")).collect());
 	    let mut constructor_bytecode = member_names.iter().map(|s| vec![
 		Bytecode::new(RawBytecode::PushSymbol(s.clone()), 0, 0),
 		Bytecode::new(RawBytecode::Load, 0, 0),
 	    ]).flatten().collect::<Vec<Bytecode>>();
-	    constructor_bytecode.push(Bytecode::new(RawBytecode::PushSymbol(variant.clone()), 0, 0));
-	    constructor_bytecode.push(Bytecode::new(RawBytecode::PushSymbol(name.clone()), 0, 0));
+	    constructor_bytecode.push(Bytecode::new(RawBytecode::PushSymbol(variant_name.clone()), 0, 0));
+	    constructor_bytecode.push(Bytecode::new(RawBytecode::PushSymbol(type_name.clone()), 0, 0));
 	    constructor_bytecode.push(Bytecode::new(RawBytecode::MakeEnum(member_names.len()), 0, 0));
 	    constructor_bytecode.push(Bytecode::new(RawBytecode::Return, 0, 0));
 	    let constructor = Function::Bytecode(member_names.iter().map(|v| v.join(".")).collect(), constructor_bytecode, constructor_shape);

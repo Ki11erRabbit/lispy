@@ -5,10 +5,10 @@ use super::module::Module;
 use super::value::{Value, Function, FunctionShape, Struct, Enum};
 use super::InterpreterResult;
 
-pub fn run(file: File, context: &mut Context) -> Result<(), Box<dyn std::error::Error>> {
+pub fn run(file: File, context: &mut Context, module_name: &Vec<String>) -> Result<(), Box<dyn std::error::Error>> {
 
     for sexpr in file {
-	match walk_through(&sexpr, context) {
+	match walk_through(&sexpr, context, module_name) {
 	    Err(e) => {
 		println!("{}", e);
 		break;
@@ -25,7 +25,7 @@ pub fn run(file: File, context: &mut Context) -> Result<(), Box<dyn std::error::
 
 
 
-pub fn walk_through(sexpr: &Sexpr, context: &mut Context) -> InterpreterResult {
+pub fn walk_through(sexpr: &Sexpr, context: &mut Context, module_name: &Vec<String>) -> InterpreterResult {
     match sexpr {
         Sexpr::Atom(atom) => {
             match atom {
@@ -42,7 +42,7 @@ pub fn walk_through(sexpr: &Sexpr, context: &mut Context) -> InterpreterResult {
                     Ok(Some(Value::new_boolean(*b)))
                 }
                 Atom::Symbol(s) => {
-                    match context.get(&s) {
+                    match context.get(&s, module_name) {
                         Some(value) => Ok(Some(value.clone())),
                         None => Err(Box::new(Exception::new(s, "not bound", context))),
                     }
@@ -65,7 +65,7 @@ pub fn walk_through(sexpr: &Sexpr, context: &mut Context) -> InterpreterResult {
         Sexpr::QuotedList(list) => {
             let mut output = Vec::new();
             for sexpr in list {
-            match walk_through(sexpr, context)? {
+            match walk_through(sexpr, context, module_name)? {
                 Some(value) => {
                     output.push(value);
                 }
@@ -84,7 +84,7 @@ pub fn walk_through(sexpr: &Sexpr, context: &mut Context) -> InterpreterResult {
         Sexpr::VectorList(list) => {
             let mut output = Vec::new();
             for sexpr in list {
-                match walk_through(sexpr, context)? {
+                match walk_through(sexpr, context, module_name)? {
                     Some(value) => {
                         output.push(value);
                     }
@@ -97,33 +97,33 @@ pub fn walk_through(sexpr: &Sexpr, context: &mut Context) -> InterpreterResult {
             Ok(Some(Value::new_vector(output, context)))
         }
         Sexpr::List(list) => {
-            walk_through_list(list, context)
+            walk_through_list(list, context, module_name)
         }
     }
 }
 
-fn walk_through_list(list: &Vec<Sexpr>, context: &mut Context) -> InterpreterResult {
+fn walk_through_list(list: &Vec<Sexpr>, context: &mut Context, module_name: &Vec<String>) -> InterpreterResult {
     if list.is_empty() {
 	    return Ok(None);
     }
     if let Sexpr::Atom(Atom::Symbol(s)) = &list[0] {
         match s[0].as_str() {
-            "define" => walk_through_define(list, context),
-            "lambda" => walk_through_lambda(list, context),
-            "if" => walk_through_if(list, context),
-            "set!" => walk_through_set(list, context),
-            "let" => walk_through_let(list, context),
-            "begin" => walk_through_begin(list, context),
-            "import" => walk_through_import(list, context),
-            "module" => walk_through_module(list, context),
-            "try" => walk_through_try(list, context),
-            "error" => walk_through_error(list, context),
-	    "cond" => walk_through_cond(list, context),
-	    "call" => walk_through_call_expr(list, context),
-	    "struct" => walk_through_struct(list, context),
-	    "enum" => walk_through_enum(list, context),
-	    "type-case" => walk_through_type_case(list, context),
-            _ => walk_through_call(list, context),
+            "define" => walk_through_define(list, context, module_name),
+            "lambda" => walk_through_lambda(list, context, module_name),
+            "if" => walk_through_if(list, context, module_name),
+            "set!" => walk_through_set(list, context, module_name),
+            "let" => walk_through_let(list, context, module_name),
+            "begin" => walk_through_begin(list, context, module_name),
+            "import" => walk_through_import(list, context, module_name),
+            "module" => walk_through_module(list, context, module_name),
+            "try" => walk_through_try(list, context, module_name),
+            "error" => walk_through_error(list, context, module_name),
+	    "cond" => walk_through_cond(list, context, module_name),
+	    "call" => walk_through_call_expr(list, context, module_name),
+	    "struct" => walk_through_struct(list, context, module_name),
+	    "enum" => walk_through_enum(list, context, module_name),
+	    "type-case" => walk_through_type_case(list, context, module_name),
+            _ => walk_through_call(list, context, module_name),
         }
     } else {
 	    let empty: Vec<&str> = Vec::new();
@@ -131,10 +131,10 @@ fn walk_through_list(list: &Vec<Sexpr>, context: &mut Context) -> InterpreterRes
     }
 }
 
-fn walk_through_define(list: &Vec<Sexpr>, context: &mut Context) -> InterpreterResult {
+fn walk_through_define(list: &Vec<Sexpr>, context: &mut Context, module_name: &Vec<String>) -> InterpreterResult {
     match list.as_slice() {
 	[_, Sexpr::Atom(Atom::Symbol(name)), value] => {
-	    let value = walk_through(value, context)?;
+	    let value = walk_through(value, context, module_name)?;
 	    match value {
 		Some(value) => {
 		    context.define(&name[0], value);
@@ -165,7 +165,7 @@ fn walk_through_define(list: &Vec<Sexpr>, context: &mut Context) -> InterpreterR
     }
 }
 
-fn walk_through_lambda(list: &Vec<Sexpr>, context: &mut Context) -> InterpreterResult {
+fn walk_through_lambda(list: &Vec<Sexpr>, context: &mut Context, module_name: &Vec<String>) -> InterpreterResult {
     match list.as_slice() {
 	[_, Sexpr::List(header), body] => {
 	    let args = header.iter().map(|sexpr| match sexpr {
@@ -181,16 +181,16 @@ fn walk_through_lambda(list: &Vec<Sexpr>, context: &mut Context) -> InterpreterR
     }
 }
 
-fn walk_through_if(list: &Vec<Sexpr>, context: &mut Context) -> InterpreterResult {
+fn walk_through_if(list: &Vec<Sexpr>, context: &mut Context, module_name: &Vec<String>) -> InterpreterResult {
     match list.as_slice() {
 	[_, condition, consequent, alternate] => {
-	    let condition = walk_through(condition, context)?;
+	    let condition = walk_through(condition, context, module_name)?;
 	    match condition {
 		Some(value) => {
 		    if value.get_boolean(context)? {
-			walk_through(consequent, context)
+			walk_through(consequent, context, module_name)
 		    } else {
-			walk_through(alternate, context)
+			walk_through(alternate, context, module_name)
 		    }
 		}
 		_ => Err(Box::new(Exception::new(&vec!["if"], "expression didn't result in a value", context)))
@@ -200,10 +200,10 @@ fn walk_through_if(list: &Vec<Sexpr>, context: &mut Context) -> InterpreterResul
     }
 }
 
-fn walk_through_set(list: &Vec<Sexpr>, context: &mut Context) -> InterpreterResult {
+fn walk_through_set(list: &Vec<Sexpr>, context: &mut Context, module_name: &Vec<String>) -> InterpreterResult {
     match list.as_slice() {
 	[_, Sexpr::Atom(Atom::Symbol(name)), value] => {
-	    let value = walk_through(value, context)?;
+	    let value = walk_through(value, context, module_name)?;
 	    match value {
 		Some(value) => {
 		    context.rebind(&name[0], value);
@@ -218,7 +218,7 @@ fn walk_through_set(list: &Vec<Sexpr>, context: &mut Context) -> InterpreterResu
     }
 }
 
-fn walk_through_let(list: &Vec<Sexpr>, context: &mut Context) -> InterpreterResult {
+fn walk_through_let(list: &Vec<Sexpr>, context: &mut Context, module_name: &Vec<String>) -> InterpreterResult {
     match list.as_slice() {
 	[_, Sexpr::List(bindings), body] => {
 	    context.push_frame(None);
@@ -227,7 +227,7 @@ fn walk_through_let(list: &Vec<Sexpr>, context: &mut Context) -> InterpreterResu
 		    Sexpr::List(sets) => {
 			match sets.as_slice() {
 			    [Sexpr::Atom(Atom::Symbol(name)), value] => {
-				let value = walk_through(value, context)?;
+				let value = walk_through(value, context, module_name)?;
 				match value {
 				    Some(value) => {
 					context.define(&name[0], value);
@@ -243,7 +243,7 @@ fn walk_through_let(list: &Vec<Sexpr>, context: &mut Context) -> InterpreterResu
 		    _ => return Err(Box::new(Exception::new(&vec!["let"], "unusual syntax", context))),
 		}
 	    }
-	    let value = walk_through(body, context);
+	    let value = walk_through(body, context, module_name);
 	    context.pop_frame();
 	    value
 	}
@@ -251,23 +251,23 @@ fn walk_through_let(list: &Vec<Sexpr>, context: &mut Context) -> InterpreterResu
     }
 }
 
-fn walk_through_begin(list: &Vec<Sexpr>, context: &mut Context) -> InterpreterResult {
+fn walk_through_begin(list: &Vec<Sexpr>, context: &mut Context, module_name: &Vec<String>) -> InterpreterResult {
     let mut output = None;
     for sexpr in list.iter().skip(1) {
-	output = walk_through(sexpr, context)?;
+	output = walk_through(sexpr, context, module_name)?;
     }
     Ok(output)
 }
 
-fn walk_through_import(list: &Vec<Sexpr>, context: &mut Context) -> InterpreterResult {
+fn walk_through_import(list: &Vec<Sexpr>, context: &mut Context, module_name: &Vec<String>) -> InterpreterResult {
     match list.as_slice() {
 	[_, path, name] => {
-	    let path = walk_through(path, context)?.ok_or(Box::new(Exception::new(&vec!["import"], "not a string", context)))?;
+	    let path = walk_through(path, context, module_name)?.ok_or(Box::new(Exception::new(&vec!["import"], "not a string", context)))?;
 	    let path = path.get_string(context)?;
-	    let name = walk_through(name, context)?.ok_or(Box::new(Exception::new(&vec!["import"], "not a symbol", context)))?;
+	    let name = walk_through(name, context, module_name)?.ok_or(Box::new(Exception::new(&vec!["import"], "not a symbol", context)))?;
 	    let name = name.get_symbol(context)?;
 
-	    let module = Module::new(path);
+	    let module = Module::new(path, name.clone());
 	    let name = if name.len() > 1 {
 		return Err(Box::new(Exception::new(&vec!["import"], "symbol must be singular", context)));
 	    } else {
@@ -281,15 +281,15 @@ fn walk_through_import(list: &Vec<Sexpr>, context: &mut Context) -> InterpreterR
     }
 }
 
-fn walk_through_module(list: &Vec<Sexpr>, context: &mut Context) -> InterpreterResult {
+fn walk_through_module(list: &Vec<Sexpr>, context: &mut Context, module_name: &Vec<String>) -> InterpreterResult {
     match list.as_slice() {
 	[_, name, ..] => {
-	    let name = walk_through(name, context)?.ok_or(Box::new(Exception::new(&vec!["module"], "not a symbol", context)))?;
+	    let name = walk_through(name, context, module_name)?.ok_or(Box::new(Exception::new(&vec!["module"], "not a symbol", context)))?;
 	    let name = name.get_symbol(context)?;
 
 	    let name = if name.len() > 1 {
 		    return Err(Box::new(Exception::new(&vec!["import"], "symbol must be singular", context)));
-        } else {
+            } else {
 		&name[0]
 	    };
 
@@ -297,7 +297,7 @@ fn walk_through_module(list: &Vec<Sexpr>, context: &mut Context) -> InterpreterR
 	    new_context.push_frame(None);
 
 	    let list = list.as_slice()[2..].to_vec();
-	    run(File::new(list), &mut new_context).map_err(|_| Box::new(Exception::new(&vec!["module"], "error while loading module", context)))?;
+	    run(File::new(list), &mut new_context, &vec![name.clone()]).map_err(|_| Box::new(Exception::new(&vec!["module"], "error while loading module", context)))?;
 
 	    let module = Module::new_from_context(new_context);
 
@@ -308,10 +308,10 @@ fn walk_through_module(list: &Vec<Sexpr>, context: &mut Context) -> InterpreterR
     }
 }
 
-fn walk_through_try(list: &Vec<Sexpr>, context: &mut Context) -> InterpreterResult {
+fn walk_through_try(list: &Vec<Sexpr>, context: &mut Context, module_name: &Vec<String>) -> InterpreterResult {
     match list.as_slice() {
 	[_, body, handlers] => {
-	    let value = walk_through(body, context);
+	    let value = walk_through(body, context, module_name);
 	    match value {
 		Ok(value) => return Ok(value),
 		Err(e) => {
@@ -334,13 +334,13 @@ fn walk_through_try(list: &Vec<Sexpr>, context: &mut Context) -> InterpreterResu
 				"catch" => {},
 				_ => return Err(Box::new(Exception::new(&vec!["try"], "unusual syntax", context))),
 			    }
-			    let who = walk_through(&clause[1], context)?.ok_or(Box::new(Exception::new(&vec!["try"], "not a symbol", context)))?;
+			    let who = walk_through(&clause[1], context, module_name)?.ok_or(Box::new(Exception::new(&vec!["try"], "not a symbol", context)))?;
 			    let who = who.get_symbol(context)?;
 					
 			    match handler.as_slice() {
 				[_, body] => {
 				    if e.get_who(context) == who {
-					return walk_through(body, context);
+					return walk_through(body, context, module_name);
 				    }
 				},
 				_ => return Err(Box::new(Exception::new(&vec!["try"], "unusual syntax", context)))
@@ -355,10 +355,10 @@ fn walk_through_try(list: &Vec<Sexpr>, context: &mut Context) -> InterpreterResu
     }
 }
 
-fn walk_through_error(list: &Vec<Sexpr>, context: &mut Context) -> InterpreterResult {
+fn walk_through_error(list: &Vec<Sexpr>, context: &mut Context, module_name: &Vec<String>) -> InterpreterResult {
     match list.as_slice() {
 	[_, who, Sexpr::Atom(Atom::String(message))] => {
-	    let who = walk_through(who, context)?.ok_or(Box::new(Exception::new(&vec!["error"], "not a symbol", context)))?;
+	    let who = walk_through(who, context, module_name)?.ok_or(Box::new(Exception::new(&vec!["error"], "not a symbol", context)))?;
 	    let who = who.get_symbol(context)?;
 
 	    Err(Box::new(Exception::new(&who, &message, context)))
@@ -367,7 +367,7 @@ fn walk_through_error(list: &Vec<Sexpr>, context: &mut Context) -> InterpreterRe
     }
 }
 
-fn walk_through_cond(list: &Vec<Sexpr>, context: &mut Context) -> InterpreterResult {
+fn walk_through_cond(list: &Vec<Sexpr>, context: &mut Context, module_name: &Vec<String>) -> InterpreterResult {
     match list.as_slice() {
 	[_, clauses @ ..] => {
 	    for clause in clauses {
@@ -380,18 +380,18 @@ fn walk_through_cond(list: &Vec<Sexpr>, context: &mut Context) -> InterpreterRes
 		match clause.as_slice() {
 		    [condition, body] => {
 			if let Sexpr::List(_) = condition {
-			    let condition = walk_through(condition, context)?.ok_or(Box::new(Exception::new(&vec!["cond"], "expression didn't result in a value", context)))?;
+			    let condition = walk_through(condition, context, module_name)?.ok_or(Box::new(Exception::new(&vec!["cond"], "expression didn't result in a value", context)))?;
 			    if condition.get_boolean(context)? {
-				return walk_through(body, context);
+				return walk_through(body, context, module_name);
 			    }
 			} else if let Sexpr::Atom(Atom::Symbol(keyword)) = condition {
 			    match keyword[0].as_str() {
-				"else" => return walk_through(body, context),
+				"else" => return walk_through(body, context, module_name),
 				_ => return Err(Box::new(Exception::new(&vec!["cond"], "unusual syntax 3", context))),
 			    }
 			} else if let Sexpr::Atom(Atom::Boolean(b)) = condition {
 			    if *b {
-				return walk_through(body, context);
+				return walk_through(body, context, module_name);
 			    }
 			} else {
 			    return Err(Box::new(Exception::new(&vec!["cond"], "unusual syntax 4", context)));
@@ -406,26 +406,26 @@ fn walk_through_cond(list: &Vec<Sexpr>, context: &mut Context) -> InterpreterRes
     }
 }
 
-fn walk_through_call_expr(list: &Vec<Sexpr>, context: &mut Context) -> InterpreterResult {
+fn walk_through_call_expr(list: &Vec<Sexpr>, context: &mut Context, module_name: &Vec<String>) -> InterpreterResult {
     match list.as_slice() {
 	[_, name, args @ ..] => {
-	    let name = walk_through(name, context)?.ok_or(Box::new(Exception::new(&vec!["call"], "not a symbol", context)))?;
+	    let name = walk_through(name, context, module_name)?.ok_or(Box::new(Exception::new(&vec!["call"], "not a symbol", context)))?;
 	    let name = name.get_symbol(context)?;
 
-	    let function = match context.get(&name) {
+	    let function = match context.get(&name, module_name) {
 		Some(f) => {
 		    f.get_function(context)?.clone()
 		},
 		None => return Err(Box::new(Exception::new(&name, "not bound", context)))
 	    };
 
-	    function.call(&name, &args.to_vec(), context)
+	    function.call(&name, &args.to_vec(), context, module_name)
 	}
 	_ => Err(Box::new(Exception::new(&vec!["call"], "unusual syntax", context))),
     }
 }
 
-fn walk_through_struct(list: &Vec<Sexpr>, context: &mut Context) -> InterpreterResult {
+fn walk_through_struct(list: &Vec<Sexpr>, context: &mut Context, module_name: &Vec<String>) -> InterpreterResult {
     match list.as_slice() {
 	[_, Sexpr::Atom(Atom::Symbol(name)), Sexpr::List(fields)] => {
 	    let fields = fields.iter().map(|sexpr| match sexpr {
@@ -434,14 +434,14 @@ fn walk_through_struct(list: &Vec<Sexpr>, context: &mut Context) -> InterpreterR
 	    }).collect::<Vec<Result<Vec<String>, Box<Exception>>>>();
 	    let fields = fields.into_iter().collect::<Result<Vec<Vec<String>>, Box<Exception>>>()?;
 
-	    Struct::create_functions(&name, fields, context);
+	    Struct::create_functions(module_name, &name, fields, context);
 	    Ok(None)
 	},
 	_ => Err(Box::new(Exception::new(&vec!["struct"], "unusual syntax", context))),
     }
 }
 
-fn walk_through_enum(list: &Vec<Sexpr>, context: &mut Context) -> InterpreterResult {
+fn walk_through_enum(list: &Vec<Sexpr>, context: &mut Context, module_name: &Vec<String>) -> InterpreterResult {
     match list.as_slice() {
 	[_, Sexpr::Atom(Atom::Symbol(name)), variants @ ..] => {
 	    let mut variant_names = Vec::new();
@@ -469,7 +469,7 @@ fn walk_through_enum(list: &Vec<Sexpr>, context: &mut Context) -> InterpreterRes
 		panic!("variant names and fields are not the same length");
 	    }
 	    
-	    Enum::create_functions(&name, &variant_names, variant_fields, context);
+	    Enum::create_functions(module_name, &name, &variant_names, variant_fields, context);
 	    
 	    Ok(None)
 	},
@@ -477,10 +477,10 @@ fn walk_through_enum(list: &Vec<Sexpr>, context: &mut Context) -> InterpreterRes
     }
 }
 
-fn walk_through_type_case(list: &Vec<Sexpr>, context: &mut Context) -> InterpreterResult {
+fn walk_through_type_case(list: &Vec<Sexpr>, context: &mut Context, module_name: &Vec<String>) -> InterpreterResult {
     match list.as_slice() {
 	[_, value, cases @ ..] => {
-	    let value = walk_through(value, context)?.ok_or(Box::new(Exception::new(&vec!["type-case"], "not a value", context)))?;
+	    let value = walk_through(value, context, module_name)?.ok_or(Box::new(Exception::new(&vec!["type-case"], "not a value", context)))?;
 	    let value = value.clone();
 	    let value_type_index = value.get_type_index();
 	    for case in cases {
@@ -492,10 +492,31 @@ fn walk_through_type_case(list: &Vec<Sexpr>, context: &mut Context) -> Interpret
 			let [Sexpr::Atom(Atom::Symbol(type_name)), fields @ ..] = clause.as_slice() else {
 			    return Err(Box::new(Exception::new(&vec!["type-case"], "unusual syntax 3", context)));
 			};
-			let type_name_index = context.get_type_index(&type_name).unwrap();
+			let type_name_index = if let Some(index) = context.get_type_index(&type_name) {
+			    index
+			} else {
+			    let type_name_with_module = module_name.iter().chain(type_name.iter()).map(|s| s.clone()).collect();
+			    if let Some(index) = context.get_type_index(&type_name_with_module) {
+				index
+			    } else {
+				return Err(Box::new(Exception::new(&vec!["type-case"], "type not found", context)));
+			    }
+			};
 			if value_type_index == type_name_index {
 			    context.push_frame(None);
-			    if context.is_enum(context.get_type_index(&type_name).unwrap()) {
+
+			    let index = if let Some(index) = context.get_type_index(&type_name) {
+				index
+			    } else {
+				let type_name_with_module = module_name.iter().chain(type_name.iter()).map(|s| s.clone()).collect();
+				if let Some(index) = context.get_type_index(&type_name_with_module) {
+				    index
+				} else {
+				    return Err(Box::new(Exception::new(&vec!["type-case"], "type not found", context)));
+				}
+			    };
+			    
+			    if context.is_enum(index) {
 				let Sexpr::Atom(Atom::Symbol(variant_name)) = &fields[0] else {
 				    return Err(Box::new(Exception::new(&vec!["type-case"], "unusual syntax 4", context)));
 				};
@@ -523,7 +544,7 @@ fn walk_through_type_case(list: &Vec<Sexpr>, context: &mut Context) -> Interpret
 				    context.define(&field_name[0], field_value.clone());
 				}
 			    }
-			    let value = walk_through(body, context);
+			    let value = walk_through(body, context, module_name);
 			    context.pop_frame();
 			    return value;
 			} else {
@@ -534,7 +555,7 @@ fn walk_through_type_case(list: &Vec<Sexpr>, context: &mut Context) -> Interpret
 			if else_symbol[0] != "else" {
 			    return Err(Box::new(Exception::new(&vec!["type-case"], "unusual syntax 7", context)));
 			}
-			let value = walk_through(body, context);
+			let value = walk_through(body, context, module_name);
 			return value;
 		    },
 		    _ => return Err(Box::new(Exception::new(&vec!["type-case"], "unusual syntax 8", context))),
@@ -548,16 +569,16 @@ fn walk_through_type_case(list: &Vec<Sexpr>, context: &mut Context) -> Interpret
 }
 	
 
-fn walk_through_call(list: &Vec<Sexpr>, context: &mut Context) -> InterpreterResult {
+fn walk_through_call(list: &Vec<Sexpr>, context: &mut Context, module_name: &Vec<String>) -> InterpreterResult {
     if let Sexpr::Atom(Atom::Symbol(name)) = &list[0] {
-        let function = match context.get(&name) {
+        let function = match context.get(&name, module_name) {
             Some(f) => {
                 f.get_function(context)?.clone()
             },
             None => return Err(Box::new(Exception::new(&name, "not bound", context)))
         };
 
-        function.call(&name, &list.as_slice()[1..], context)
+        function.call(&name, &list.as_slice()[1..], context, module_name)
 
     } else {
         let empty: Vec<&str> = Vec::new();

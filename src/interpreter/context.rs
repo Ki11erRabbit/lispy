@@ -2,10 +2,12 @@ use std::collections::{HashMap, HashSet};
 use crate::gc::{self, Gc};
 use crate::interpreter::value::Value;
 use crate::interpreter::module::Module;
+use crate::parser::r#macro::Macro;
 use crate::stdlib::get_stdlib;
-use std::sync::{Arc, RwLock};
+use std::sync::{Arc, RwLock, RwLockWriteGuard};
 use std::sync::mpsc::Sender;
 use std::cell::RefCell;
+
 
 use super::value::GcValue;
 
@@ -58,10 +60,11 @@ pub struct Context {
     type_table: Arc<RwLock<Vec<Value>>>,
     symbols_to_table: Arc<RwLock<HashMap<Vec<String>, usize>>>,
     enum_idicies: Arc<RwLock<HashSet<usize>>>,
+    macros: Arc<RwLock<HashSet<Macro>>>
 }
 
 impl Context {
-    pub fn new(gc_lock: Arc<RwLock<()>>, sender: Sender<Gc<GcValue>>) -> Self {
+    pub fn new(gc_lock: Arc<RwLock<()>>, sender: Sender<Gc<GcValue>>, macros: HashSet<Macro>) -> Self {
 	let mut ctx = Context {
 	    gc_lock,
 	    sender,
@@ -70,6 +73,7 @@ impl Context {
 	    type_table: Arc::new(RwLock::new(Vec::new())),
 	    symbols_to_table: Arc::new(RwLock::new(HashMap::new())),
 	    enum_idicies: Arc::new(RwLock::new(HashSet::new())),
+	    macros: Arc::new(RwLock::new(macros)),
 	};
 	let string_name = Value::new_symbol(vec!["string".to_string()], &mut ctx);
 	let integer_name = Value::new_symbol(vec!["integer".to_string()], &mut ctx);
@@ -104,6 +108,7 @@ impl Context {
 	    type_table: Arc::new(RwLock::new(Vec::new())),
 	    symbols_to_table: Arc::new(RwLock::new(HashMap::new())),
 	    enum_idicies: Arc::new(RwLock::new(HashSet::new())),
+	    macros: Arc::new(RwLock::new(HashSet::new())),
 	};
 	
 	let stdlib = get_stdlib(&mut ctx);
@@ -144,16 +149,34 @@ impl Context {
     	None
     }
 
-    pub fn get(&self, name: &Vec<String>) -> Option<Value> {
+    pub fn get(&self, name: &Vec<String>, module_name: &Vec<String>) -> Option<Value> {
         if name.len() == 1 {
             let value = self.get_from_frame(&name[0]);
             return value.cloned();
         }
-        if let Some(module) = self.modules.borrow_mut().get_mut(&name[0]) {
-            module.get(&name.as_slice()[1..], self)
-        } else {
-            None
-        }
+
+	if module_name.len() > 0 {
+	    let mut lookup = module_name.clone();
+	    lookup.append(&mut name.clone());
+	    let module_borrow = self.modules.borrow();
+	    let module = module_borrow.get(&lookup[0]);
+	    if let Some(module) = module {
+		module.get(&lookup.as_slice()[1..], self)
+	    } else {
+		drop(module_borrow);
+		if let Some(module) = self.modules.borrow_mut().get_mut(&name[0]) {
+		    module.get(&name.as_slice()[1..], self)
+		} else {
+		    None
+		}
+	    }
+	} else {
+	    if let Some(module) = self.modules.borrow_mut().get_mut(&name[0]) {
+		module.get(&name.as_slice()[1..], self)
+	    } else {
+		None
+	    }
+	}
     }
 
     pub fn define(&mut self, name: &str, value: Value) {
@@ -310,7 +333,10 @@ impl Context {
     pub fn is_enum(&self, index: usize) -> bool {
 	self.enum_idicies.read().unwrap().contains(&index)
     }
-    
+
+    pub fn get_macros(&self) -> RwLockWriteGuard<HashSet<Macro>> {
+	self.macros.write().unwrap()
+    }
 	
 }
 
@@ -327,6 +353,7 @@ impl Clone for Context {
 	    type_table: self.type_table.clone(),
 	    symbols_to_table: self.symbols_to_table.clone(),
 	    enum_idicies: self.enum_idicies.clone(),
+	    macros: self.macros.clone(),
 	}
     }
 }

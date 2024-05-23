@@ -13,9 +13,9 @@ pub struct Module {
 }
 
 impl Module {
-    pub fn new(path: &str) -> Self {
+    pub fn new(path: &str, module_name: Vec<String>) -> Self {
 	Module {
-	    raw_module: RefCell::new(RawModule::File(path.to_string())),
+	    raw_module: RefCell::new(RawModule::File(path.to_string(), module_name)),
 	}
     }
 
@@ -41,7 +41,7 @@ impl Module {
     fn load(&self, context: &Context) {
 	let mut new_self = None;
 	match &mut *self.raw_module.borrow_mut() {
-	    RawModule::File(path) => {
+	    RawModule::File(path, module_name) => {
 		let mut context = context.clone();
 		let load_path = std::env::var("LISPY_LOAD_PATH").unwrap_or(".".to_string());
 		let load_path = if load_path.as_str() != "." {
@@ -53,9 +53,9 @@ impl Module {
 		for dir in load_path {
 		    let full_path = format!("{}/{}", dir, path);
 		    if let Ok(file_content) = std::fs::read_to_string(&full_path) {
-			let file = crate::parser::parse(&file_content).expect("parse error");
+			let file = crate::parser::parse(&file_content, &mut context.get_macros()).expect("parse error");
 			context.push_frame(None);
-			crate::interpreter::walk_through::run(file, &mut context).expect("run error");
+			crate::interpreter::walk_through::run(file, &mut context, &module_name).expect("run error");
 			let frame = context.pop_frame().expect("pop error");
 			let submodules = context.pop_modules();
 			let frame = Arc::new(frame);
@@ -80,7 +80,7 @@ impl Module {
 	    return None;
 	}
 	match &*self.raw_module.borrow() {
-	    RawModule::File(_) => unreachable!(),
+	    RawModule::File(_, _) => unreachable!(),
 	    RawModule::Loaded { submodules, frame } => {
 		if path.len() == 1 {
 		    return frame.get(&path[0]).cloned();
@@ -96,7 +96,7 @@ impl Module {
 
     pub fn mark(&self) {
 	match &*self.raw_module.borrow() {
-	    RawModule::File(_) => {},
+	    RawModule::File(_, _) => {},
 	    RawModule::Loaded { submodules, frame } => {
 		for (_, module) in submodules.iter() {
 		    module.mark();
@@ -108,7 +108,7 @@ impl Module {
 
     pub fn unmark(&self) {
 	match &*self.raw_module.borrow() {
-	    RawModule::File(_) => {},
+	    RawModule::File(_, _) => {},
 	    RawModule::Loaded { submodules, frame } => {
 		for (_, module) in submodules.iter() {
 		    module.unmark();
@@ -122,7 +122,7 @@ impl Module {
 
 #[derive(Clone)]
 enum RawModule {
-    File(String),
+    File(String, Vec<String>),
     Loaded {
 	submodules: Arc<HashMap<String, Module>>,
 	frame: Arc<ContextFrame>,
