@@ -250,7 +250,7 @@ peg::parser!{
 	rule comment() -> FileObject
 	    = ";" [^'\n']* ['\n'] { FileObject::Comment }
 	/ "#;" sexpr() { FileObject::Comment }
-	/ "#|" [_]* "|#" { FileObject::Comment }
+	// "#|" [_]* "|#" { FileObject::Comment }
 	rule file_sexpr() -> FileObject
 	= c:comment() { c }
 	    / s:sexpr() { FileObject::Sexpr(s) }

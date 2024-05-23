@@ -7,9 +7,9 @@
         (define (test) (display "test\n")))
    
 #;(test.test)
-#|
+
 (thread.spawn (lambda () (display "thread\n")))
-|#
+
 (define l '(1 2 3 4))
 
 (define x 10)
