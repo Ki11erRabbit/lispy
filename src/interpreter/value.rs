@@ -456,6 +456,37 @@ impl Value {
 	}
     }
 
+    pub fn new_bytevector(value: Vec<u8>, context: &Context) -> Self {
+	let gc_object = Gc::new(GcValue::ByteVector(value));
+	context.send_gc(gc_object.clone());
+	Value {
+	    raw: RawValue::Gc(gc_object),
+	}
+    }
+    pub fn get_bytevector(&self, context: &Context) -> HelperResult<&Vec<u8>> {
+	let empty: Vec<&str> = Vec::new();
+	match self.raw {
+	    RawValue::Gc(ref gc) => {
+		match gc.get() {
+		    GcValue::ByteVector(ref v) => Ok(v),
+		    _ => Err(Box::new(Exception::new(&empty, "not a bytevector", context))),
+		}
+	    }
+	    _ => Err(Box::new(Exception::new(&empty, "not a bytevector", context))),
+	}
+    }
+    pub fn is_bytevector(&self) -> bool {
+	match self.raw {
+	    RawValue::Gc(ref gc) => {
+		match gc.get() {
+		    GcValue::ByteVector(_) => true,
+		    _ => false,
+		}
+	    }
+	    _ => false,
+	}
+    }
+    
     pub fn new_nil() -> Self {
 	Value {
 	    raw: RawValue::Nil,
@@ -549,6 +580,7 @@ impl Value {
 		    GcValue::RustValue(_) => 11,
 		    GcValue::Struct(s) => s.name_index ,
 		    GcValue::Enum(e) => e.name_index,
+		    GcValue::ByteVector(_) => 12,
 		}
 	    },
 	    RawValue::Integer(_) => 2,
@@ -619,6 +651,7 @@ pub enum GcValue {
     RustValue(Box<dyn Any>),
     Struct(Struct),
     Enum(Enum),
+    ByteVector(Vec<u8>),
 }
 
 impl std::fmt::Display for GcValue {
@@ -660,6 +693,9 @@ impl std::fmt::Display for GcValue {
 	    },
 	    GcValue::Enum(_) => {
 		write!(f, "<enum>")
+	    },
+	    GcValue::ByteVector(v) => {
+		write!(f, "#u8({})", v.iter().map(|b| format!("{}", b)).collect::<Vec<String>>().join(" "))
 	    },
 	}
     }

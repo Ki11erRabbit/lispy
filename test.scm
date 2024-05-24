@@ -90,4 +90,6 @@
         [(color rgb r g b) (display "color\n")]
         [else (display "else\n")])
 
+(network.string->ipv4 "8.8.8.8")
+
 (/ 1 0)

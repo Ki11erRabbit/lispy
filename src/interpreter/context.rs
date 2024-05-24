@@ -87,7 +87,8 @@ impl Context {
 	let sexpr_name = Value::new_symbol(vec!["sexpr".to_string()], &mut ctx);
 	let char_name = Value::new_symbol(vec!["char".to_string()], &mut ctx);
 	let rust_value_name = Value::new_symbol(vec!["rust-value".to_string()], &mut ctx);
-	let type_table = vec![nil_name, string_name, integer_name, float_name, boolean_name, symbol_name, list_name, vector_name, function_name, char_name, sexpr_name, rust_value_name];
+	let bytevector_name = Value::new_symbol(vec!["bytevector".to_string()], &mut ctx);
+	let type_table = vec![nil_name, string_name, integer_name, float_name, boolean_name, symbol_name, list_name, vector_name, function_name, char_name, sexpr_name, rust_value_name, bytevector_name];
 	type_table.iter().for_each(|v| v.protect());
 	ctx.type_table = Arc::new(RwLock::new(type_table));
 	
@@ -96,6 +97,12 @@ impl Context {
 
 	let thread = crate::stdlib::thread::get_thread_library(&mut ctx);
 	ctx.add_module("thread", thread);
+
+	let file = crate::stdlib::file::get_file_library(&mut ctx);
+	ctx.add_module("file", file);
+
+	let network = crate::stdlib::network::get_network_library(&mut ctx);
+	ctx.add_module("network", network);
 	
 	ctx
     }
