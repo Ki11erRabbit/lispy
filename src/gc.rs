@@ -220,9 +220,14 @@ impl GcTable {
 }
 
 
-pub fn garbage_collect(table: &mut GcTable) {
+pub fn garbage_collect(table: &mut GcTable, receiver: std::sync::mpsc::Receiver<()>) {
     let mut time = std::time::Instant::now();
     loop {
+	match receiver.try_recv() {
+	    Ok(_) => break,
+	    Err(TryRecvError::Empty) => {},
+	    Err(TryRecvError::Disconnected) => break,
+	}
 	match table.receiver.try_recv() {
 	    Ok(value) => {
 		table.insert(value);

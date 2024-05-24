@@ -18,13 +18,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let mut context = interpreter::context::Context::new(lock, tx, macros);
 
+    let (tx, rx) = std::sync::mpsc::channel();
+    
     std::thread::spawn(move || {
 	let mut gc_table = gc_table;
-	gc::garbage_collect(&mut gc_table);
+	gc::garbage_collect(&mut gc_table, rx);
     });
 
     interpreter::walk_through::run(file, &mut context, &vec!["main".to_string()])?;
-
-    std::process::exit(0);// Somehow this is needed because the program just blocks for some reason
+    
+    tx.send(()).unwrap();
+    std::process::exit(0);// Thi is needed due to threads that are not joined
     //Ok(())
 }

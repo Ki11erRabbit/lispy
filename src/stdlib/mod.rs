@@ -1,6 +1,7 @@
 
 pub mod thread;
-
+pub mod file;
+pub mod network;
 use std::io::Write;
 use std::io::Read;
 use std::io::BufRead;
@@ -465,6 +466,117 @@ fn stdlib_floor_div(context: &mut Context, args: Vec<Value>, keyword_args: HashM
     }
 }
 
+fn stdlib_modulo_shape() -> FunctionShape {
+    FunctionShape::new(vec!["x".to_string(), "y".to_string()])
+} 
+
+fn stdlib_modulo(context: &mut Context, args: Vec<Value>, keyword_args: HashMap<String, Value>) -> HelperResult<Value> {
+    let float_exists = check_for_floats(&args, &keyword_args);
+
+    if float_exists {
+	let difference = if args.len() == 1 {
+	    let part1 = if args[0].is_float() {
+		args[0].get_float(context)?
+	    } else {
+		args[0].get_integer(context)?.to_f64()
+	    }; 
+	    let part2 = match keyword_args.get("y") {
+		Some(value) => {
+		    if value.is_float() {
+			value.get_float(context)?
+		    } else {
+			value.get_integer(context)?.to_f64()
+		    }
+		}
+		None => unreachable!(),
+	    };
+	    if part2 == 0.0 {
+		return Err(Box::new(Exception::new(&vec!["modulo"], "division by zero", context)));
+	    }
+	    part1 % part2
+	} else if args.len() == 2 {
+	    let part1 = if args[0].is_float() {
+		args[0].get_float(context)?
+	    } else {
+		args[0].get_integer(context)?.to_f64()
+	    };
+	    let part2 = if args[1].is_float() {
+		args[1].get_float(context)?
+	    } else {
+		args[1].get_integer(context)?.to_f64()
+	    };
+	    if part2 == 0.0 {
+		return Err(Box::new(Exception::new(&vec!["modulo"], "division by zero", context)));
+	    }
+	    part1 % part2
+	} else {
+	    let part1 = match keyword_args.get("x") {
+		Some(value) => {
+		    if value.is_float() {
+			value.get_float(context)?
+		    } else {
+			value.get_integer(context)?.to_f64()
+		    }
+		}
+		None => unreachable!(),
+	    };
+	    let part2 = match keyword_args.get("y") {
+		Some(value) => {
+		    if value.is_float() {
+			value.get_float(context)?
+		    } else {
+			value.get_integer(context)?.to_f64()
+		    }
+		}
+		None => unreachable!(),
+	    };
+	    if part2 == 0.0 {
+		return Err(Box::new(Exception::new(&vec!["modulo"], "division by zero", context)));
+	    }
+	    part1 % part2
+	};
+	Ok(Value::new_float(difference))
+    } else {
+	let difference = if args.len() == 1 {
+	    let part1 = args[0].get_integer(context)?;
+	    let part2 = match keyword_args.get("y") {
+		Some(value) => {
+		    value.get_integer(context)?
+		}
+		None => unreachable!(),
+	    };
+	    if part2.is_zero() {
+		return Err(Box::new(Exception::new(&vec!["modulo"], "division by zero", context)));
+	    }
+	    part1 % part2
+	} else if args.len() == 2 {
+	    let part1 = args[0].get_integer(context)?;
+	    let part2 = args[1].get_integer(context)?;
+	    if part2.is_zero() {
+		return Err(Box::new(Exception::new(&vec!["modulo"], "division by zero", context)));
+	    }
+	    part1 % part2
+	} else {
+	    let part1 = match keyword_args.get("x") {
+		Some(value) => {
+		    value.get_integer(context)?
+		}
+		None => unreachable!(),
+	    };
+	    let part2 = match keyword_args.get("y") {
+		Some(value) => {
+		    value.get_integer(context)?
+		}
+		None => unreachable!(),
+	    };
+	    if part2.is_zero() {
+		return Err(Box::new(Exception::new(&vec!["modulo"], "division by zero", context)));
+	    }
+	    part1 % part2
+	};
+	Ok(Value::new_integer_from_integer(Integer::from(difference)))
+    }
+}
 
 macro_rules! numeric_equality_check {
     ($name:ident, $op:tt, $str:expr) => {
@@ -1506,6 +1618,7 @@ pub fn get_stdlib(context: &mut Context) -> ContextFrame {
     bindings.insert("*".to_string(), Value::new_function(Function::Native(stdlib_mul, stdlib_mul_shape()), context));
     bindings.insert("/".to_string(), Value::new_function(Function::Native(stdlib_div, stdlib_div_shape()), context));
     bindings.insert("//".to_string(), Value::new_function(Function::Native(stdlib_floor_div, stdlib_floor_div_shape()), context));
+    bindings.insert("modulo".to_string(), Value::new_function(Function::Native(stdlib_modulo, stdlib_modulo_shape()), context));
     bindings.insert(">".to_string(), Value::new_function(Function::Native(stdlib_greater_than, stdlib_greater_than_shape()), context));
     bindings.insert("<".to_string(), Value::new_function(Function::Native(stdlib_less_than, stdlib_less_than_shape()), context));
     bindings.insert(">=".to_string(), Value::new_function(Function::Native(stdlib_greater_than_or_equal, stdlib_greater_than_or_equal_shape()), context));

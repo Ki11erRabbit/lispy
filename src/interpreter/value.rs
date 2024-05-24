@@ -676,7 +676,7 @@ pub enum Function {
     Tree(Vec<String>, Sexpr, ContextFrame, FunctionShape),
     Native(fn(&mut Context, Vec<Value>, HashMap<String, Value>) -> HelperResult<Value>, FunctionShape),
     Bytecode(Vec<String>, Vec<Bytecode>, FunctionShape),
-    //NativeClosure(Box<dyn Fn(&mut Context, Vec<Value>, HashMap<String, Value>) -> HelperResult<Value>>, FunctionShape),
+    //CNative(unsafe extern "C" fn(*mut Context, *mut Value, usize, *mut Value, *mut Exception), FunctionShape),
 }
 
 impl Function {
@@ -826,7 +826,7 @@ impl Function {
 	}
     }
 
-    pub fn call_from_bytecode(&self, name: &Vec<String>, args: Vec<Value>, kargs: HashMap<String, Value>, context: &mut Context, module_name: &Vec<String>) -> InterpreterResult {
+    pub fn call_from_bytecode(&self, name: &Vec<String>, args: Vec<Value>, kargs: HashMap<String, Value>, context: &mut Context, _: &Vec<String>) -> InterpreterResult {
 	match self {
 	    Function::Tree(fun_args, body, frame, shape) => {
 		context.push_frame(Some(frame.clone()));
