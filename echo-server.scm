@@ -10,10 +10,8 @@
     (sleep 5)
     (g)))
 
+
 (define (loop socket)
-    (let [(data (network.receive socket))]
-      (begin
-       (network.send socket data)
-       (loop socket))))
+    (let [(data (network.receive socket))] (begin (network.send socket data) (loop socket))))
 
 (loop socket)

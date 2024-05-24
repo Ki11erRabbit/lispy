@@ -262,14 +262,16 @@ peg::parser!{
 
 pub fn parse(input: &str, macros: &mut HashSet<Macro>) -> Result<File, peg::error::ParseError<peg::str::LineCol>> {
     parser::file(input).map(|f| {
+
 	let file = File::new(f.body.into_iter().filter_map(|fo| {
 	    match fo {
 		FileObject::Sexpr(s) => Some(s),
 		FileObject::Comment => None,
 	    }
 	}).collect());
-	let File { body, .. } = file;
-	File::new(r#macro::expand(body, macros))
+    file
+	//let File { body, .. } = file;
+	//File::new(r#macro::expand(body, macros))
     })
 }
 

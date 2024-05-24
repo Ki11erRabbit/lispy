@@ -237,10 +237,10 @@ fn walk_through_let(list: &Vec<Sexpr>, context: &mut Context, module_name: &Vec<
 				    }
 				}
 			    }
-			    _ => return Err(Box::new(Exception::new(&vec!["let"], "unusual syntax", context))),
+			    _ => return Err(Box::new(Exception::new(&vec!["let"], "unusual syntax 1", context))),
 			}
 		    }
-		    _ => return Err(Box::new(Exception::new(&vec!["let"], "unusual syntax", context))),
+		    _ => return Err(Box::new(Exception::new(&vec!["let"], "unusual syntax 2", context))),
 		}
 	    }
 	    let value = walk_through(body, context, module_name);
