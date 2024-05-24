@@ -1,7 +1,10 @@
 
+(define send-addr (network.string->socket-addr-v4 "127.0.0.1:9697"))
 
-(define socket (network.udp-socket (network.string->socket-addr-v4 "127.0.0.1:9696")))
+(define send-socket (network.udp-socket send-addr))
+(define recv-socket (network.udp-socket (network.string->socket-addr-v4 "127.0.0.1:9696")))
 
+(define send-addr (network.string->socket-addr-v4 "127.0.0.1:9696"))
 
 (define (g)
   (begin 
@@ -11,7 +14,10 @@
     (g)))
 
 
-(define (loop socket)
-    (let [(data (network.receive socket))] (begin (network.send socket data) (loop socket))))
+(define (loop recv-socket send-socket)
+    (let [(data (network.receive recv-socket))] 
+      (begin (network.connect recv-socket send-addr) 
+             (network.send recv-socket data) 
+             (loop recv-socket send-socket))))
 
-(loop socket)
+(loop recv-socket send-socket)

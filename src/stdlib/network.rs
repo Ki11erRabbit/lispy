@@ -128,9 +128,9 @@ fn stdlib_tcp_socket(context: &mut Context, args: Vec<Value>, keyword_args: Hash
 
     let addr = addr.get_rust_value(context)?;
     let socket = if let Some(addr) = addr.downcast_ref::<std::net::SocketAddrV4>() {
-	std::net::TcpStream::connect(addr).map_err(|_| Exception::new(&vec!["network","tcp-socket"], "socket connect error", context))?
+	std::net::TcpStream::connect(addr).map_err(|err| Exception::new(&vec!["network","tcp-socket"], &format!("{}", err), context))?
     } else if let Some(addr) = addr.downcast_ref::<std::net::SocketAddrV6>() {
-	std::net::TcpStream::connect(addr).map_err(|_| Exception::new(&vec!["network","tcp-socket"], "socket connect error", context))?
+	std::net::TcpStream::connect(addr).map_err(|err| Exception::new(&vec!["network","tcp-socket"], &format!("{}", err), context))?
     } else {
 	return Err(Box::new(Exception::new(&vec!["network","tcp-socket"], "addr is not a socket address", context)));
     };
@@ -155,9 +155,9 @@ fn stdlib_tcp_listener(context: &mut Context, args: Vec<Value>, keyword_args: Ha
 
     let addr = addr.get_rust_value(context)?;
     let listener = if let Some(addr) = addr.downcast_ref::<std::net::SocketAddrV4>() {
-	std::net::TcpListener::bind(addr).map_err(|_| Exception::new(&vec!["network","tcp-listener"], "listener bind error", context))?
+	std::net::TcpListener::bind(addr).map_err(|err| Exception::new(&vec!["network","tcp-listener"], &format!("{}", err), context))?
     } else if let Some(addr) = addr.downcast_ref::<std::net::SocketAddrV6>() {
-	std::net::TcpListener::bind(addr).map_err(|_| Exception::new(&vec!["network","tcp-listener"], "listener bind error", context))?
+	std::net::TcpListener::bind(addr).map_err(|err| Exception::new(&vec!["network","tcp-listener"], &format!("{}", err), context))?
     } else {
 	return Err(Box::new(Exception::new(&vec!["network","tcp-listener"], "addr is not a socket address", context)));
     };
@@ -165,6 +165,58 @@ fn stdlib_tcp_listener(context: &mut Context, args: Vec<Value>, keyword_args: Ha
 
     let listener = Value::new_rust_value(listener, context);
     Ok(listener)
+}
+
+fn stdlib_connect_shape() -> FunctionShape {
+    FunctionShape::new(vec!["socket".to_string(), "addr".to_string()])
+}
+
+fn stdlib_connect(context: &mut Context, args: Vec<Value>, keyword_args: HashMap<String, Value>) -> HelperResult<Value> {
+    let socket = if let Some(socket) = args.get(0) {
+	socket.clone()
+    } else if let Some(socket) = keyword_args.get("socket") {
+	socket.clone()
+    } else {
+	return Err(Box::new(Exception::new(&vec!["network","connect"], "socket is not provided", context)));
+    };
+
+    let addr = if let Some(addr) = args.get(1) {
+	addr.clone()
+    } else if let Some(addr) = keyword_args.get("addr") {
+	addr.clone()
+    } else {
+	return Err(Box::new(Exception::new(&vec!["network","connect"], "addr is not provided", context)));
+    };
+
+    let addr = addr.get_rust_value(context)?;
+
+    if let Some(addr) = addr.downcast_ref::<std::net::SocketAddrV4>() {
+	let socket = socket.get_rust_value(context)?;
+	if let Some(socket) = socket.downcast_ref::<Option<std::net::UdpSocket>>() {
+	    if let Some(socket) = socket {
+		socket.connect(addr).map_err(|err| Exception::new(&vec!["network","connect"], &format!("{}", err), context))?;
+	    } else {
+		return Err(Box::new(Exception::new(&vec!["network","connect"], "socket is not a udp socket", context)));
+	    }
+	} else {
+	    return Err(Box::new(Exception::new(&vec!["network","connect"], "socket is not a tcp stream", context)));
+	};
+    } else if let Some(addr) = addr.downcast_ref::<std::net::SocketAddrV6>() {
+	let socket = socket.get_rust_value(context)?;
+	if let Some(socket) = socket.downcast_ref::<Option<std::net::UdpSocket>>() {
+	    if let Some(socket) = socket {
+		socket.connect(addr).map_err(|err| Exception::new(&vec!["network","connect"], &format!("{}", err), context))?;
+	    } else {
+		return Err(Box::new(Exception::new(&vec!["network","connect"], "socket is not a udp socket", context)));
+	    }
+	} else {
+	    return Err(Box::new(Exception::new(&vec!["network","connect"], "socket is not a tcp stream", context)));
+	};
+    } else {
+	return Err(Box::new(Exception::new(&vec!["network","connect"], "addr is not a socket address", context)));
+    }
+
+    Ok(Value::new_nil())
 }
 
 fn stdlib_accept_shape() -> FunctionShape {
@@ -186,10 +238,7 @@ fn stdlib_accept(context: &mut Context, args: Vec<Value>, keyword_args: HashMap<
 	return Err(Box::new(Exception::new(&vec!["network","accept"], "listener is closed", context)));
     }
     let listener = listener.as_ref().unwrap();
-    let (stream, addr) = listener.accept().map_err(|err| match err {
-	e if e.kind() == std::io::ErrorKind::WouldBlock => Exception::new(&vec!["network","accept"], "accept would block", context),
-	_ => Exception::new(&vec!["network","accept"], "accept error", context)
-	})?;
+    let (stream, addr) = listener.accept().map_err(|err| Exception::new(&vec!["network","accept"], &format!("{}", err), context))?;
     let stream = Box::new(stream);
     let addr = Box::new(addr);
 
@@ -222,12 +271,12 @@ fn stdlib_set_nonblocking(context: &mut Context, args: Vec<Value>, keyword_args:
     let socket = socket.get_rust_value(context)?;
     if let Some(socket) = socket.downcast_ref::<Option<std::net::UdpSocket>>() {
 	if let Some(socket) = socket {
-	    socket.set_nonblocking(nonblocking).map_err(|_| Exception::new(&vec!["network","set-nonblocking"], "set nonblocking error", context))?;
+	    socket.set_nonblocking(nonblocking).map_err(|err| Exception::new(&vec!["network","set-nonblocking"], &format!("{}", err), context))?;
 	} else {
 	    return Err(Box::new(Exception::new(&vec!["network","set-nonblocking"], "socket is closed", context)));
 	}
     } else if let Some(socket) = socket.downcast_ref::<std::net::TcpStream>() {
-	socket.set_nonblocking(nonblocking).map_err(|_| Exception::new(&vec!["network","set-nonblocking"], "set nonblocking error", context))?;
+	socket.set_nonblocking(nonblocking).map_err(|err| Exception::new(&vec!["network","set-nonblocking"], &format!("{}", err), context))?;
     } else {
 	return Err(Box::new(Exception::new(&vec!["network","set-nonblocking"], "socket is not a socket", context)));
     };
@@ -253,12 +302,12 @@ fn stdlib_send(context: &mut Context, args: Vec<Value>, keyword_args: HashMap<St
 	    let socket = socket.get_rust_value(context)?;
 	    if let Some(socket) = socket.downcast_ref::<Option<std::net::UdpSocket>>() {
 		if let Some(socket) = socket {
-		    socket.send(&data.as_bytes()).map_err(|_| Exception::new(&vec!["network","send"], "send error", context))?;
+		    socket.send(&data.as_bytes()).map_err(|err| Exception::new(&vec!["network","send"], &format!("{}", err), context))?;
 		} else {
 		    return Err(Box::new(Exception::new(&vec!["network","send"], "socket is closed", context)));
 		}
 	    } else if let Some(mut socket) = socket.downcast_ref::<std::net::TcpStream>() {
-		socket.write_all(&data.as_bytes()).map_err(|_| Exception::new(&vec!["network","send"], "send error", context))?;
+		socket.write_all(&data.as_bytes()).map_err(|err| Exception::new(&vec!["network","send"], &format!("{}", err), context))?;
 	    } else {
 		return Err(Box::new(Exception::new(&vec!["network","send"], "socket is not a socket", context)));
 	    };
@@ -266,12 +315,12 @@ fn stdlib_send(context: &mut Context, args: Vec<Value>, keyword_args: HashMap<St
 	    let socket = socket.get_rust_value(context)?;
 	    if let Some(socket) = socket.downcast_ref::<Option<std::net::UdpSocket>>() {
 		if let Some(socket) = socket {
-		    socket.send(&data).map_err(|_| Exception::new(&vec!["network","send"], "send error", context))?;
+		    socket.send(&data).map_err(|err| Exception::new(&vec!["network","send"], &format!("{}", err), context))?;
 		} else {
 		    return Err(Box::new(Exception::new(&vec!["network","send"], "socket is closed", context)));
 		}
 	    } else if let Some(mut socket) = socket.downcast_ref::<std::net::TcpStream>() {
-		socket.write_all(&data).map_err(|_| Exception::new(&vec!["network","send"], "send error", context))?;
+		socket.write_all(&data).map_err(|err| Exception::new(&vec!["network","send"], &format!("{}", err), context))?;
 	    } else {
 		return Err(Box::new(Exception::new(&vec!["network","send"], "socket is not a socket", context)));
 	    };
@@ -283,12 +332,12 @@ fn stdlib_send(context: &mut Context, args: Vec<Value>, keyword_args: HashMap<St
 	    let socket = socket.get_rust_value(context)?;
 	    if let Some(socket) = socket.downcast_ref::<Option<std::net::UdpSocket>>() {
 		if let Some(socket) = socket {
-		    socket.send(&data.as_bytes()).map_err(|_| Exception::new(&vec!["network","send"], "send error", context))?;
+		    socket.send(&data.as_bytes()).map_err(|err| Exception::new(&vec!["network","send"], &format!("{}", err), context))?;
 		} else {
 		    return Err(Box::new(Exception::new(&vec!["network","send"], "socket is closed", context)));
 		}
 	    } else if let Some(mut socket) = socket.downcast_ref::<std::net::TcpStream>() {
-		socket.write_all(&data.as_bytes()).map_err(|_| Exception::new(&vec!["network","send"], "send error", context))?;
+		socket.write_all(&data.as_bytes()).map_err(|err| Exception::new(&vec!["network","send"], &format!("{}", err), context))?;
 	    } else {
 		return Err(Box::new(Exception::new(&vec!["network","send"], "socket is not a socket", context)));
 	    };
@@ -296,12 +345,12 @@ fn stdlib_send(context: &mut Context, args: Vec<Value>, keyword_args: HashMap<St
 	    let socket = socket.get_rust_value(context)?;
 	    if let Some(socket) = socket.downcast_ref::<Option<std::net::UdpSocket>>() {
 		if let Some(socket) = socket {
-		    socket.send(&data).map_err(|_| Exception::new(&vec!["network","send"], "send error", context))?;
+		    socket.send(&data).map_err(|err| Exception::new(&vec!["network","send"], &format!("{}", err), context))?;
 		} else {
 		    return Err(Box::new(Exception::new(&vec!["network","send"], "socket is closed", context)));
 		}
 	    } else if let Some(mut socket) = socket.downcast_ref::<std::net::TcpStream>() {
-		socket.write_all(&data).map_err(|_| Exception::new(&vec!["network","send"], "send error", context))?;
+		socket.write_all(&data).map_err(|err| Exception::new(&vec!["network","send"], &format!("{}", err), context))?;
 	    } else {
 		return Err(Box::new(Exception::new(&vec!["network","send"], "socket is not a socket", context)));
 	    };
@@ -324,23 +373,23 @@ fn stdlib_receive(context: &mut Context, args: Vec<Value>, keyword_args: HashMap
     } else if let Some(socket) = keyword_args.get("socket") {
 	socket.clone()
     } else {
-	return Err(Box::new(Exception::new(&vec!["network","receive-from"], "socket is not provided", context)));
+	return Err(Box::new(Exception::new(&vec!["network","receive"], "socket is not provided", context)));
     };
 
     let socket = socket.get_rust_value(context)?;
     let mut buffer = [0; 1024];
     let data = if let Some(socket) = socket.downcast_ref::<Option<std::net::UdpSocket>>() {
 	if let Some(socket) = socket {
-	    let (size, _) = socket.recv_from(&mut buffer).map_err(|_| Exception::new(&vec!["network","receive-from"], "receive error", context))?;
+	    let (size, _) = socket.recv_from(&mut buffer).map_err(|err| Exception::new(&vec!["network","receive"], &format!("{}", err), context))?;
 	    buffer[..size].to_vec()
 	} else {
-	    return Err(Box::new(Exception::new(&vec!["network","receive-from"], "socket is closed", context)));
+	    return Err(Box::new(Exception::new(&vec!["network","receive"], "socket is closed", context)));
 	}
     } else if let Some(mut socket) = socket.downcast_ref::<std::net::TcpStream>() {
-	let size = socket.read(&mut buffer).map_err(|_| Exception::new(&vec!["network","receive-from"], "receive error", context))?;
+	let size = socket.read(&mut buffer).map_err(|err| Exception::new(&vec!["network","receive"], &format!("{}", err), context))?;
 	buffer[..size].to_vec()
     } else {
-	return Err(Box::new(Exception::new(&vec!["network","receive-from"], "socket is not a socket", context)));
+	return Err(Box::new(Exception::new(&vec!["network","receive"], "socket is not a socket", context)));
     };
     let data = Value::new_bytevector(data, context);
     Ok(data)
@@ -366,7 +415,7 @@ fn stdlib_close(context: &mut Context, args: Vec<Value>, keyword_args: HashMap<S
 	    return Err(Box::new(Exception::new(&vec!["network","close"], "socket is already closed", context)));
 	}
     } else if let Some(socket) = socket.downcast_ref::<std::net::TcpStream>() {
-	socket.shutdown(std::net::Shutdown::Both).map_err(|_| Exception::new(&vec!["network","close"], "close error", context))?;
+	socket.shutdown(std::net::Shutdown::Both).map_err(|err| Exception::new(&vec!["network","close"], &format!("{}", err), context))?;
     } else if let Some(socket) = socket.downcast_mut::<Option<std::net::TcpListener>>() {
 	let socket = socket.take();
 	if socket.is_none() {
@@ -392,6 +441,7 @@ pub fn get_network_library(context: &mut Context) -> Module {
     context.define("udp-socket", Value::new_function(Function::Native(stdlib_udp_socket, stdlib_udp_socket_shape()), context));
     context.define("tcp-socket", Value::new_function(Function::Native(stdlib_tcp_socket, stdlib_tcp_socket_shape()), context));
     context.define("tcp-listener", Value::new_function(Function::Native(stdlib_tcp_listener, stdlib_tcp_listener_shape()), context));
+    context.define("connect", Value::new_function(Function::Native(stdlib_connect, stdlib_connect_shape()), context));
     context.define("accept", Value::new_function(Function::Native(stdlib_accept, stdlib_accept_shape()), context));
     context.define("set-nonblocking", Value::new_function(Function::Native(stdlib_set_nonblocking, stdlib_set_nonblocking_shape()), context));
     context.define("send", Value::new_function(Function::Native(stdlib_send, stdlib_send_shape()), context));
