@@ -269,9 +269,9 @@ pub fn parse(input: &str, macros: &mut HashSet<Macro>) -> Result<File, peg::erro
 		FileObject::Comment => None,
 	    }
 	}).collect());
-    file
-	//let File { body, .. } = file;
-	//File::new(r#macro::expand(body, macros))
+    //file
+	let File { body, .. } = file;
+	File::new(r#macro::expand(body, macros))
     })
 }
 

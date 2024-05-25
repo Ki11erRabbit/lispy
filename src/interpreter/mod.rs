@@ -34,6 +34,9 @@ impl Exception {
     pub fn get_who(&self, context: &mut Context) -> &Vec<String> {
 	self.who.get_symbol(context).expect("who is not a symbol")
     }
+    pub fn get_message(&self) -> Value {
+	self.message.clone()
+    }
 }
 
 impl Error for Exception {}

@@ -122,7 +122,7 @@ fn walk_through_list(list: &Vec<Sexpr>, context: &mut Context, module_name: &Vec
 	    "call" => walk_through_call_expr(list, context, module_name),
 	    "struct" => walk_through_struct(list, context, module_name),
 	    "enum" => walk_through_enum(list, context, module_name),
-	    "type-case" => walk_through_type_case(list, context, module_name),
+	    "match" => walk_through_type_case(list, context, module_name),
             _ => walk_through_call(list, context, module_name),
         }
     } else {
@@ -336,11 +336,18 @@ fn walk_through_try(list: &Vec<Sexpr>, context: &mut Context, module_name: &Vec<
 			    }
 			    let who = walk_through(&clause[1], context, module_name)?.ok_or(Box::new(Exception::new(&vec!["try"], "not a symbol", context)))?;
 			    let who = who.get_symbol(context)?;
+			    let Sexpr::Atom(Atom::Symbol(message_var)) = &clause[2] else {
+				return Err(Box::new(Exception::new(&vec!["try"], "unusual syntax", context)));
+			    };
 					
 			    match handler.as_slice() {
 				[_, body] => {
 				    if e.get_who(context) == who {
-					return walk_through(body, context, module_name);
+					context.push_frame(None);
+					context.define(&message_var[0], e.get_message());
+					let value = walk_through(body, context, module_name);
+					context.pop_frame();
+					return value;
 				    }
 				},
 				_ => return Err(Box::new(Exception::new(&vec!["try"], "unusual syntax", context)))
@@ -480,17 +487,17 @@ fn walk_through_enum(list: &Vec<Sexpr>, context: &mut Context, module_name: &Vec
 fn walk_through_type_case(list: &Vec<Sexpr>, context: &mut Context, module_name: &Vec<String>) -> InterpreterResult {
     match list.as_slice() {
 	[_, value, cases @ ..] => {
-	    let value = walk_through(value, context, module_name)?.ok_or(Box::new(Exception::new(&vec!["type-case"], "not a value", context)))?;
+	    let value = walk_through(value, context, module_name)?.ok_or(Box::new(Exception::new(&vec!["match"], "not a value", context)))?;
 	    let value = value.clone();
 	    let value_type_index = value.get_type_index();
 	    for case in cases {
 		let Sexpr::List(case) = case else {
-		    return Err(Box::new(Exception::new(&vec!["type-case"], "unusual syntax 1", context)));
+		    return Err(Box::new(Exception::new(&vec!["match"], "unusual syntax 1", context)));
 		};
 		match case.as_slice() {
 		    [Sexpr::List(clause), body] => {
 			let [Sexpr::Atom(Atom::Symbol(type_name)), fields @ ..] = clause.as_slice() else {
-			    return Err(Box::new(Exception::new(&vec!["type-case"], "unusual syntax 3", context)));
+			    return Err(Box::new(Exception::new(&vec!["match"], "unusual syntax 3", context)));
 			};
 			let type_name_index = if let Some(index) = context.get_type_index(&type_name) {
 			    index
@@ -499,7 +506,7 @@ fn walk_through_type_case(list: &Vec<Sexpr>, context: &mut Context, module_name:
 			    if let Some(index) = context.get_type_index(&type_name_with_module) {
 				index
 			    } else {
-				return Err(Box::new(Exception::new(&vec!["type-case"], "type not found", context)));
+				return Err(Box::new(Exception::new(&vec!["match"], "type not found", context)));
 			    }
 			};
 			if value_type_index == type_name_index {
@@ -512,13 +519,13 @@ fn walk_through_type_case(list: &Vec<Sexpr>, context: &mut Context, module_name:
 				if let Some(index) = context.get_type_index(&type_name_with_module) {
 				    index
 				} else {
-				    return Err(Box::new(Exception::new(&vec!["type-case"], "type not found", context)));
+				    return Err(Box::new(Exception::new(&vec!["match"], "type not found", context)));
 				}
 			    };
 			    
 			    if context.is_enum(index) {
 				let Sexpr::Atom(Atom::Symbol(variant_name)) = &fields[0] else {
-				    return Err(Box::new(Exception::new(&vec!["type-case"], "unusual syntax 4", context)));
+				    return Err(Box::new(Exception::new(&vec!["match"], "unusual syntax 4", context)));
 				};
 				let enumeration = value.get_enum(context)?;
 				let variant_type_index = context.get_type_index(&variant_name).unwrap();
@@ -529,7 +536,7 @@ fn walk_through_type_case(list: &Vec<Sexpr>, context: &mut Context, module_name:
 
 				for (i, field) in fields.iter().skip(1).enumerate() {
 				    let Sexpr::Atom(Atom::Symbol(field_name)) = field else {
-					return Err(Box::new(Exception::new(&vec!["type-case"], "unusual syntax 5", context)));
+					return Err(Box::new(Exception::new(&vec!["match"], "unusual syntax 5", context)));
 				    };
 				    let field_value = enumeration.get_member(i, context)?;
 				    context.define(&field_name[0], field_value.clone());
@@ -538,7 +545,7 @@ fn walk_through_type_case(list: &Vec<Sexpr>, context: &mut Context, module_name:
 				let structure = value.get_struct(context)?;
 				for (i, field) in fields.iter().enumerate() {
 				    let Sexpr::Atom(Atom::Symbol(field_name)) = field else {
-					return Err(Box::new(Exception::new(&vec!["type-case"], "unusual syntax 6", context)));
+					return Err(Box::new(Exception::new(&vec!["match"], "unusual syntax 6", context)));
 				    };
 				    let field_value = structure.get_member(i, context)?;
 				    context.define(&field_name[0], field_value.clone());
@@ -553,17 +560,77 @@ fn walk_through_type_case(list: &Vec<Sexpr>, context: &mut Context, module_name:
 		    },
 		    [Sexpr::Atom(Atom::Symbol(else_symbol)), body] => {
 			if else_symbol[0] != "else" {
-			    return Err(Box::new(Exception::new(&vec!["type-case"], "unusual syntax 7", context)));
+			    context.push_frame(None);
+			    context.define(&else_symbol[0], value.clone());
+			    let value = walk_through(body, context, module_name);
+			    context.pop_frame();
+			    return value;
 			}
 			let value = walk_through(body, context, module_name);
 			return value;
 		    },
-		    _ => return Err(Box::new(Exception::new(&vec!["type-case"], "unusual syntax 8", context))),
+		    [Sexpr::Atom(Atom::Boolean(b)), body] => {
+			match value.get_boolean(context) {
+			    Ok(value) => {
+				if value == *b {
+				    let value = walk_through(body, context, module_name);
+				    return value;
+				}
+			    }
+			    Err(_) => { continue; },
+			}
+		    },
+		    [Sexpr::Atom(Atom::Integer(i)), body] => {
+			match value.get_integer(context) {
+			    Ok(value) => {
+				if value.to_string().as_str() == i {
+				    let value = walk_through(body, context, module_name);
+				    return value;
+				}
+			    }
+			    Err(_) => { continue; },
+			}
+		    },
+		    [Sexpr::Atom(Atom::Char(c)), body] => {
+			match value.get_char(context) {
+			    Ok(value) => {
+				if value == *c {
+				    let value = walk_through(body, context, module_name);
+				    return value;
+				}
+			    }
+			    Err(_) => { continue; },
+			}
+		    },
+		    [Sexpr::Atom(Atom::String(s)), body] => {
+			match value.get_string(context) {
+			    Ok(value) => {
+				if value == s {
+				    let value = walk_through(body, context, module_name);
+				    return value;
+				}
+			    }
+			    Err(_) => { continue; },
+			}
+		    },
+		    [Sexpr::Atom(Atom::Null), body] => {
+			if value.is_nil() {
+			    let value = walk_through(body, context, module_name);
+			    return value;
+			}
+		    },
+		    [Sexpr::VectorList(_), _] => {
+			todo!("matching on vectors");
+		    },
+		    [Sexpr::QuotedList(_), _] => {
+			todo!("matching on lists");
+		    },
+		    _ => return Err(Box::new(Exception::new(&vec!["match"], "unusual syntax 8", context))),
 		}
 	    }
-	    Err(Box::new(Exception::new(&vec!["type-case"], "no matching case and no else branch", context)))
+	    Err(Box::new(Exception::new(&vec!["match"], "no matching case and no else branch", context)))
 	}
-	_ => Err(Box::new(Exception::new(&vec!["type-case"], "unusual syntax 9", context))),
+	_ => Err(Box::new(Exception::new(&vec!["match"], "unusual syntax 9", context))),
     }
     
 }

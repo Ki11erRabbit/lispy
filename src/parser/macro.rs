@@ -265,67 +265,137 @@ pub fn expand(mut source: Vec<Sexpr>, macros: &mut HashSet<Macro>) -> Vec<Sexpr>
 fn expand_real<'a>(bindings: &mut MacroContext, source: &'a Vec<Sexpr>, macros: &mut HashSet<Macro>) -> Vec<Sexpr> {
     let mut output = Vec::new();
     for sexpr in source.iter() {
-	expand_real_single(bindings, sexpr, macros, &mut output);
+	match expand_real_single(bindings, sexpr, macros) {
+	    Some(sexpr) => {
+		output.push(sexpr);
+	    },
+	    None => {},
+	}
     }
     output
 }
 
-fn expand_real_single<'a> (bindings: &mut MacroContext, sexpr: &'a Sexpr, macros: &mut HashSet<Macro>, output: &mut Vec<Sexpr>) {
+fn expand_real_single<'a> (bindings: &mut MacroContext, sexpr: &'a Sexpr, macros: &mut HashSet<Macro>) -> Option<Sexpr> {
     match sexpr {
 	Sexpr::List(l) => {
-	    expand_list(bindings, l, macros, output);
+	    expand_list(bindings, l, macros)
 	},
 	x => {
-	    output.push(x.clone());
+	    Some(x.clone())
 	},
     }
 }
 
-fn expand_list<'a>(bindings: &mut MacroContext, list: &'a Vec<Sexpr>, macros: &mut HashSet<Macro>, output: &mut Vec<Sexpr>) {
+fn expand_list<'a>(bindings: &mut MacroContext, list: &'a Vec<Sexpr>, macros: &mut HashSet<Macro>) -> Option<Sexpr> {
     if list.is_empty() {
-	return;
+	//return;
     }
     if let Sexpr::Atom(Atom::Symbol(s)) = &list[0] {
 	match s[0].as_str() {
 	    "define" => {
 		let body = expand_define(bindings, list, macros);
 		let new_list = vec![Sexpr::Atom(Atom::Symbol(vec!["define".to_string()])), list[1].clone(), body];
-		output.push(Sexpr::List(new_list));
+		Some(Sexpr::List(new_list))
 	    },
-	    "define-syntax-rule" => expand_define_syntax_rule(bindings, list, macros, output),
-	    /*"let" => {
-		println!("Expanding let: {:?}\n", list);
-		let let_bindings = &list[1];
-		let Sexpr::List(let_bindings) = let_bindings else {
-		    todo!("make an error");
-		};
-		let body = &list[2];
-		let mut new_bindings = Vec::new();
-		for binding in let_bindings {
-		    if let Sexpr::List(l) = binding {
-			let mut new_binding = Vec::new();
-			let Sexpr::Atom(Atom::Symbol(s)) = &l[0] else {
-			    todo!("make an error");
+	    "define-syntax-rule" => expand_define_syntax_rule(bindings, list, macros),
+	    "let" => {
+		//println!("{:?}", list);
+		match list.as_slice() {
+		    [_, Sexpr::List(let_bindings), body] => {
+			bindings.push();
+			let mut new_bindings = Vec::new();
+			for binding in let_bindings {
+			    match binding {
+				Sexpr::List(sets) => {
+				    match sets.as_slice() {
+					[Sexpr::Atom(Atom::Symbol(s)), body] => {
+					    bindings.bind(s.clone());
+					    if let Some(expanded) = expand_real_single(bindings, body, macros) {
+						new_bindings.push(Sexpr::List(vec![Sexpr::Atom(Atom::Symbol(s.clone())), expanded]));
+					    }
+					},
+					_ => todo!("make an error"),
+				    }
+				},
+				_ => todo!("make an error"),
+			    }
+			}
+			let new_list = if let Some(expanded_body) = expand_real_single(bindings, body, macros) {
+			    vec![Sexpr::Atom(Atom::Symbol(vec!["let".to_string()])), Sexpr::List(new_bindings), expanded_body]
+			} else {
+			    vec![Sexpr::Atom(Atom::Symbol(vec!["let".to_string()])), Sexpr::List(new_bindings), body.clone()]
 			};
-			bindings.bind(s.clone());
-			new_binding.push(Sexpr::Atom(Atom::Symbol(s.clone())));
-			new_binding.push(Sexpr::List(expand_real(bindings, l, macros)));
-			new_bindings.push(Sexpr::List(new_binding));
-		    } else {
-			todo!("make an error");
-		    }
+			//println!("{:?}", new_list);
+			let out = Sexpr::List(new_list);
+			bindings.pop();
+			Some(out)
+		    },
+		    _ => todo!("make an error"),
 		}
+	    },
+	    "match" => {
+		//println!("{:?}", list);
+		match list.as_slice() {
+		    [_, value, cases @ ..] => {
+			let expanded_value = expand_real_single(bindings, value, macros);
+			let mut new_cases = Vec::new();
+			for case in cases {
+			    bindings.push();
+			    let Sexpr::List(case) = case else {
+				todo!("make an error");
+			    };
+			    match case.as_slice() {
+				[Sexpr::List(clause), body] => {
+				    let clause_iter = clause.iter().skip(1);
+				    for clause in clause_iter {
+					let Sexpr::Atom(Atom::Symbol(s)) = clause else {
+					    todo!("make an error");
+					};
+					bindings.bind(s.clone());
+				    }
+				    let expanded_body = expand_real_single(bindings, body, macros);
+				    new_cases.push(Sexpr::List(vec![Sexpr::List(clause.clone()), expanded_body?]));
+				},
+				[Sexpr::Atom(Atom::Symbol(s)), body] => {
+				    match s[0].as_str() {
+					"else" => {
+					    let expanded_body = expand_real_single(bindings, body, macros);
+					    new_cases.push(Sexpr::List(vec![Sexpr::Atom(Atom::Symbol(s.clone())), expanded_body?]));
+					},
+					_ => {
+					    bindings.bind(s.clone());
+					    let expanded_body = expand_real_single(bindings, body, macros);
+					    new_cases.push(Sexpr::List(vec![Sexpr::Atom(Atom::Symbol(s.clone())), expanded_body?]));
+					}
+				    }
+				},
+				[Sexpr::Atom(_), body] => {
+				    let expanded_body = expand_real_single(bindings, body, macros);
+				    new_cases.push(Sexpr::List(vec![case[0].clone(), expanded_body?]));
+				}, 
+				[Sexpr::QuotedList(_), _] => {
+				    todo!("quoted list in match");
+				},
+				[Sexpr::VectorList(_), _] => {
+				    todo!("vector list in match");
+				}, 
 
-		let mut new_output = Vec::new(); 
-		expand_real_single(bindings, body, macros, &mut new_output);
-		let mut new_list = Vec::new();
-		new_list.push(Sexpr::Atom(Atom::Symbol(s.clone())));
-		new_list.push(Sexpr::List(new_bindings));
-		new_list.push(Sexpr::List(new_output));
-		output.push(Sexpr::List(new_list));
-	    }*/
-	    _ => try_expand_macro(bindings, list, macros, output),
+				_ => todo!("make an error"),
+			    }
+			    bindings.pop();
+			}
+			let mut out = vec![list[0].clone(), expanded_value?];
+			out.extend(new_cases);
+			//println!("{:?}", out);
+			Some(Sexpr::List(out))
+		    },
+		    _ => todo!("make an error"),
+		}
+	    }
+	    _ => try_expand_macro(bindings, list, macros),
 	}
+    } else {
+	return Some(Sexpr::List(list.clone()));
     }
 }
 
@@ -374,7 +444,7 @@ fn expand_define<'a>(bindings: &mut MacroContext, list: &'a Vec<Sexpr>, macros: 
     }
 }
 
-fn expand_define_syntax_rule<'a>(bindings: &mut MacroContext, list: &'a Vec<Sexpr>, macros: &mut HashSet<Macro>, output: &mut Vec<Sexpr>) {
+fn expand_define_syntax_rule<'a>(bindings: &mut MacroContext, list: &'a Vec<Sexpr>, macros: &mut HashSet<Macro>) -> Option<Sexpr> {
     match list.as_slice() {
 	[_, Sexpr::List(header), body] => {
 	    let out = match body {
@@ -392,15 +462,15 @@ fn expand_define_syntax_rule<'a>(bindings: &mut MacroContext, list: &'a Vec<Sexp
 	},
 	_ => todo!("make an error"),
     }
+    None
 }
 
-fn try_expand_macro<'a>(bindings: &'a mut MacroContext, list: &'a Vec<Sexpr>, macros: &mut HashSet<Macro>, output: &mut Vec<Sexpr>) {
+fn try_expand_macro<'a>(bindings: &'a mut MacroContext, list: &'a Vec<Sexpr>, macros: &mut HashSet<Macro>) -> Option<Sexpr> {
     for macro_ in macros.iter() {
 	let out = macro_.expand(bindings, list.clone());
 	if let Some(out) = out {
-	    output.push(out);
-	    return;
+	    return Some(out);
 	}
     }
-    output.push(Sexpr::List(list.clone()));
+    Some(Sexpr::List(list.clone()))
 }

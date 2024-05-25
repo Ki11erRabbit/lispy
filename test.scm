@@ -42,7 +42,7 @@
     (display "true\n")
     (display "false\n"))
 
-(try (error 'test "error") ([(catch 'test)
+(try (error 'test "error") ([(catch 'test msg)
    (display "caught error\n")]))
 
 (display "making macro\n")
@@ -72,7 +72,7 @@
 
 (point-x-set!(point 1 2) 4)
 
-(type-case (point 1 2)
+(match (point 1 2)
         [(point x y) (display "point\n")])
 
 
@@ -86,10 +86,16 @@
 
 (color-rgb-red-set! (color-rgb 1 2 3) 2)
 
-(type-case (color-rgb 1 2 3)
+(match (color-rgb 1 2 3)
         [(color rgb r g b) (display "color\n")]
         [else (display "else\n")])
 
 (network.string->ipv4 "8.8.8.8")
+
+(match "hello world" 
+        ["hello world" (display "match\n")])
+
+
+
 
 (/ 1 0)
