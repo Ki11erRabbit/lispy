@@ -1,5 +1,6 @@
 use rug::Integer;
 use std::any::Any;
+use std::ffi::CString;
 use crate::parser::Atom;
 use crate::parser::Sexpr;
 use crate::interpreter::{self, HelperResult};
@@ -14,7 +15,7 @@ use super::{context::{ContextFrame, Context}, Exception, InterpreterResult};
 
 pub struct Nil;
 
-
+#[repr(C)]
 #[derive(Clone)]
 pub struct Value {
     raw: RawValue, 
@@ -486,7 +487,7 @@ impl Value {
 	    _ => false,
 	}
     }
-    
+
     pub fn new_nil() -> Self {
 	Value {
 	    raw: RawValue::Nil,
@@ -593,6 +594,16 @@ impl Value {
     
 }
 
+// C API Functions for Value
+
+impl Value {
+    #[no_mangle]
+    pub extern "C" fn value_new_nil() -> *mut Self {
+	Box::into_raw(Box::new(Value::new_nil()))
+    }
+
+}
+
 impl std::fmt::Display for Value {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
 	match &self.raw {
@@ -631,6 +642,7 @@ impl std::fmt::Debug for Value {
     }
 }
 
+#[repr(C)]
 #[derive(Clone)]
 enum RawValue {
     Gc(Gc<GcValue>),
@@ -641,6 +653,7 @@ enum RawValue {
     Char(char),
 }
 
+#[repr(C)]
 pub enum GcValue {
     String(String),
     Sexpr(Sexpr),
@@ -707,12 +720,32 @@ impl std::fmt::Debug for GcValue {
     }
 }
 
+#[repr(C)]
+pub enum CFunctionOutput {
+    Value(Value),
+    Exception(Exception),
+    Blank,
+}
+
+impl CFunctionOutput {
+    pub extern "C" fn new_value(&mut self, value: *mut Value) {
+	unsafe {
+	    let value = Box::from_raw(value);
+	    *self = CFunctionOutput::Value(*value.clone());
+	}
+    }
+    pub extern "C" fn new_exception(&mut self, exception: Exception) {
+	*self = CFunctionOutput::Exception(exception);
+    }
+}
+
+
 #[derive(Clone)]
 pub enum Function {
     Tree(Vec<String>, Sexpr, ContextFrame, FunctionShape),
     Native(fn(&mut Context, Vec<Value>, Kwargs) -> HelperResult<Value>, FunctionShape),
     Bytecode(Vec<String>, Vec<Bytecode>, FunctionShape),
-    //CNative(unsafe extern "C" fn(*mut Context, *mut Value, usize, *mut Value, *mut Exception), FunctionShape),
+    CNative(unsafe extern "C" fn(*mut Context, *mut Value, usize, *mut Kwargs, *mut CFunctionOutput), FunctionShape),
 }
 
 impl Function {
@@ -757,6 +790,25 @@ impl Function {
 		let value = interpreter::bytecode::run(&bytecode.as_slice(), context, &new_module_name);
 		context.pop_frame();
 		value
+	    },
+	    Function::CNative(f, _) => {
+		let mut args = args.clone();
+		let mut kargs = kargs.clone();
+		let mut context = context.clone();
+		let mut output = CFunctionOutput::Blank;
+		unsafe {
+		    f(&mut context, args.as_mut_ptr(), args.len(), &mut kargs, &mut output);
+		};
+
+		match output {
+		    CFunctionOutput::Value(value) => Ok(Some(value)),
+		    CFunctionOutput::Exception(exception) => Err(Box::new(exception)),
+		    CFunctionOutput::Blank => {
+			let empty: Vec<&str> = Vec::new();
+			Err(Box::new(Exception::new(&empty, "C function didn't return a value", &context)))
+		    },
+		}
+
 	    },
 	}
     }
@@ -895,6 +947,57 @@ impl Function {
 		context.pop_frame();
 		value
 	    },
+	    Function::CNative(f, shape) => {
+		let mut args = Vec::new();
+		let mut keyword_args = Kwargs::new();
+		let mut iterator = list.iter();
+		while let Some(sexpr) = iterator.next() {
+		    match sexpr {
+			Sexpr::Atom(Atom::Keyword(k)) => {
+			    if let Some(value) = iterator.next() {
+				match interpreter::walk_through::walk_through(value, context, module_name)? {
+				    Some(value) => {
+					keyword_args.insert(k.clone(), value);
+				    }
+				    None => {
+					return Err(Box::new(Exception::new(&name, "expression didn't result in a value", context)));
+				    }
+				}
+			    } else {
+				return Err(Box::new(Exception::new(&name, "unusual syntax", context)));
+			    }
+			}
+			s => {
+			    match interpreter::walk_through::walk_through(s, context, module_name)? {
+				Some(value) => {
+				    args.push(value);
+				}
+				None => {
+				    return Err(Box::new(Exception::new(&name, "expression didn't result in a value", context)));
+				}
+			    }
+			}
+		    }
+		}
+		shape.check(&name, &args, &keyword_args, context)?;
+
+		let mut args = args.clone();
+		let mut kargs = keyword_args.clone();
+		let mut context = context.clone();
+		let mut output = CFunctionOutput::Blank;
+		unsafe {
+		    f(&mut context, args.as_mut_ptr(), args.len(), &mut kargs, &mut output);
+		};
+
+		match output {
+		    CFunctionOutput::Value(value) => Ok(Some(value)),
+		    CFunctionOutput::Exception(exception) => Err(Box::new(exception)),
+		    CFunctionOutput::Blank => {
+			let empty: Vec<&str> = Vec::new();
+			Err(Box::new(Exception::new(&empty, "C function didn't return a value", &context)))
+		    },
+		}
+	    },
 	}
     }
 
@@ -938,6 +1041,26 @@ impl Function {
 		context.pop_frame();
 		value
 	    },
+	    Function::CNative(f, shape) => {
+		shape.check(&name, &args, &kargs, context)?;
+
+		let mut args = args.clone();
+		let mut kargs = kargs.clone();
+		let mut context = context.clone();
+		let mut output = CFunctionOutput::Blank;
+		unsafe {
+		    f(&mut context, args.as_mut_ptr(), args.len(), &mut kargs, &mut output);
+		};
+
+		match output {
+		    CFunctionOutput::Value(value) => Ok(Some(value)),
+		    CFunctionOutput::Exception(exception) => Err(Box::new(exception)),
+		    CFunctionOutput::Blank => {
+			let empty: Vec<&str> = Vec::new();
+			Err(Box::new(Exception::new(&empty, "C function didn't return a value", &context)))
+		    },
+		}
+	    }
 	}
     }
 
@@ -961,15 +1084,16 @@ impl Function {
     }
 }*/
 
+#[repr(C)]
 #[derive(Clone)]
 pub struct FunctionShape {
-    args: Vec<String>,
+    args: Box<Vec<String>>,
 }
 
 impl FunctionShape {
     pub fn new(args: Vec<String>) -> Self {
 	FunctionShape {
-	    args,
+	    args: Box::new(args),
 	}
     }
 
@@ -989,6 +1113,15 @@ impl FunctionShape {
 	}
 
 	Ok(())
+    }
+
+    #[no_mangle]
+    pub extern "C" fn new_function_shape(args: *mut CString, len: usize) -> FunctionShape {
+	let args = unsafe {
+	    std::slice::from_raw_parts(args, len)
+	};
+	let args = args.iter().map(|s| s.to_str().unwrap().to_string()).collect();
+	FunctionShape::new(args)
     }
 }
 

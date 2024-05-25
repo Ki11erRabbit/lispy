@@ -11,6 +11,7 @@ use std::cell::RefCell;
 
 use super::value::GcValue;
 
+#[repr(C)]
 #[derive(Clone)]
 pub struct ContextFrame {
     pub bindings: HashMap<String, Value>,
@@ -52,6 +53,7 @@ impl ContextFrame {
     }
 }
 
+#[repr(C)]
 pub struct Context {
     gc_lock: Arc<RwLock<()>>,
     sender: Sender<Gc<GcValue>>,

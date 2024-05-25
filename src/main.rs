@@ -1,9 +1,18 @@
 use std::collections::HashSet;
 
+use crate::interpreter::context::Context;
+use crate::interpreter::value::Value;
+use crate::interpreter::value::Function;
+use crate::interpreter::value::FunctionShape;
+use crate::interpreter::kwargs::Kwargs;
+use crate::interpreter::value::CFunctionOutput;
+
+
 pub mod parser;
 pub mod interpreter;
 pub mod stdlib;
 pub mod gc;
+pub mod ffi;
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args: Vec<String> = std::env::args().collect();
 
@@ -25,7 +34,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 	gc::garbage_collect(&mut gc_table, rx);
     });
 
-    interpreter::walk_through::run(file, &mut context, &vec!["main".to_string()])?;
+    //crate::ffi::get_ffi_library_test(&mut context)?;
+    unsafe {
+	let lib = libloading::Library::new("ffi.so")?;
+	let func = lib.get::<unsafe extern "C" fn(*mut Context, *mut Value, usize, *mut Kwargs, *mut CFunctionOutput)>(b"hello_c")?;
+	let shape = FunctionShape::new(vec![]);
+	let function = Function::CNative(*func, shape);
+	let function = Value::new_function(function, &mut context);
+	context.define("hello-c", function);
+	interpreter::walk_through::run(file, &mut context, &vec!["main".to_string()])?;
+    }
+
+    //interpreter::walk_through::run(file, &mut context, &vec!["main".to_string()])?;
     
     tx.send(()).unwrap();
     std::process::exit(0);// Thi is needed due to threads that are not joined

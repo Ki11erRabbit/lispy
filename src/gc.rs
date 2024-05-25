@@ -38,6 +38,7 @@ struct GcBox<T: ?Sized> {
     value: T,
 }
 
+#[repr(C)]
 enum RawGc<T: ?Sized> {
     Normal {
 	marked: NonNull<Mutex<Mark>>,
@@ -49,6 +50,7 @@ enum RawGc<T: ?Sized> {
     },
 }
 
+#[repr(C)]
 pub struct Gc<T: ?Sized> {
 	raw: UnsafeCell<RawGc<T>>,
 }

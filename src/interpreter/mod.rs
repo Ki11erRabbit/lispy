@@ -15,10 +15,11 @@ pub mod kwargs;
 pub type InterpreterResult = Result<Option<Value>, Box<Exception>>;
 pub type HelperResult<T> = std::result::Result<T, Box<Exception>>;
 
+#[repr(C)]
 #[derive(Debug)]
 pub struct Exception {
-    who: Value, // Symbol
-    message: Value, // String
+    who: Box<Value>, // Symbol
+    message: Box<Value>, // String
 }
 
 impl Exception {
@@ -27,8 +28,8 @@ impl Exception {
 	let who = Value::new_symbol(who, context);
 	let message = Value::new_string(message, context);
 	Exception {
-	    who,
-	    message,
+	    who: Box::new(who),
+	    message: Box::new(message),
 	}
     }
 
@@ -36,7 +37,7 @@ impl Exception {
 	self.who.get_symbol(context).expect("who is not a symbol")
     }
     pub fn get_message(&self) -> Value {
-	self.message.clone()
+	*self.message.clone()
     }
 }
 
