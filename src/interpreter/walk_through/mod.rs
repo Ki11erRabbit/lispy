@@ -165,7 +165,7 @@ fn walk_through_define(list: &Vec<Sexpr>, context: &mut Context, module_name: &V
     }
 }
 
-fn walk_through_lambda(list: &Vec<Sexpr>, context: &mut Context, module_name: &Vec<String>) -> InterpreterResult {
+fn walk_through_lambda(list: &Vec<Sexpr>, context: &mut Context, _: &Vec<String>) -> InterpreterResult {
     match list.as_slice() {
 	[_, Sexpr::List(header), body] => {
 	    let args = header.iter().map(|sexpr| match sexpr {
@@ -310,14 +310,11 @@ fn walk_through_module(list: &Vec<Sexpr>, context: &mut Context, module_name: &V
 
 fn walk_through_try(list: &Vec<Sexpr>, context: &mut Context, module_name: &Vec<String>) -> InterpreterResult {
     match list.as_slice() {
-	[_, body, handlers] => {
+	[_, body, handlers @ ..] => {
 	    let value = walk_through(body, context, module_name);
 	    match value {
 		Ok(value) => return Ok(value),
 		Err(e) => {
-		    let Sexpr::List(handlers) = handlers else {
-			return Err(Box::new(Exception::new(&vec!["try"], "unusual syntax", context)));
-		    };
 		    for handler in handlers {
 			if let Sexpr::List(handler) = handler {
 			    if handler.len() != 2 {

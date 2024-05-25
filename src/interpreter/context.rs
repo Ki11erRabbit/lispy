@@ -194,7 +194,7 @@ impl Context {
 	if name.len() == 1 {
 	    self.define(&name[0], value);
 	} else {
-	    if let Some(module) = self.modules.borrow_mut().get_mut(&name[0]) {
+	    if let Some(_) = self.modules.borrow_mut().get_mut(&name[0]) {
 		todo!("bind to module");
 		//module.bind(&name.as_slice()[1..], value, self);
 	    }

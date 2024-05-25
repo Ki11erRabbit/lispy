@@ -42,8 +42,8 @@
     (display "true\n")
     (display "false\n"))
 
-(try (error 'test "error") ([(catch 'test msg)
-   (display "caught error\n")]))
+(try (error 'test "error") 
+     [(catch 'test msg) (display "caught error\n")])
 
 (display "making macro\n")
 (define-syntax-rule (swap x y)
@@ -51,6 +51,7 @@
                       (begin
                         (set! x y)
                         (set! y tmp))))
+
 (display "done\n")
 (define x 1)
 (define y 2)

@@ -8,7 +8,6 @@ use crate::interpreter::value::FunctionShape;
 use crate::interpreter::value::Value;
 use crate::interpreter::context::Context;
 use crate::interpreter::module::Module;
-use crate::interpreter::InterpreterResult;
 
 
 fn stdlib_open_shape() -> FunctionShape {

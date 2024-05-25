@@ -392,6 +392,36 @@ fn expand_list<'a>(bindings: &mut MacroContext, list: &'a Vec<Sexpr>, macros: &m
 		    _ => todo!("make an error"),
 		}
 	    }
+	    "try" => {
+		match list.as_slice() {
+		    [_, body, handlers @ ..] => {
+			let mut new_handlers = Vec::new();
+			let expanded_body = expand_real_single(bindings, body, macros);
+			for handler in handlers {
+			    bindings.push();
+			    let Sexpr::List(handler) = handler else {
+				todo!("make an error");
+			    };
+			    match handler.as_slice() {
+				[Sexpr::List(clause), body] => {
+				    let Sexpr::Atom(Atom::Symbol(s)) = &clause[0] else {
+					todo!("make an error");
+				    };
+				    bindings.bind(s.clone());
+				    let expanded_body = expand_real_single(bindings, body, macros);
+				    new_handlers.push(Sexpr::List(vec![Sexpr::List(clause.clone()), expanded_body?]));
+				},
+				_ => todo!("make an error"),
+			    }
+			    bindings.pop();
+			}
+			let mut out = vec![list[0].clone(), expanded_body?];
+			out.extend(new_handlers);
+			Some(Sexpr::List(out))
+		    },
+		    _ => todo!("make an error"),
+		}
+	    },
 	    _ => try_expand_macro(bindings, list, macros),
 	}
     } else {
@@ -449,10 +479,8 @@ fn expand_define_syntax_rule<'a>(bindings: &mut MacroContext, list: &'a Vec<Sexp
 	[_, Sexpr::List(header), body] => {
 	    let out = match body {
 		Sexpr::List(l) => {
-		    // TODO: expand the body of macros properly
-		    /*let out = expand_real(bindings, l, macros);
-		    Sexpr::List(out)*/
-		    body.clone()
+		    let out = expand_real(bindings, l, macros);
+		    Sexpr::List(out)
 		},
 		Sexpr::Atom(_) => body.clone(),
 		_ => todo!("make an error"),
