@@ -156,6 +156,10 @@ impl Context {
     	None
     }
 
+    pub fn is_bound(&self, name: &Vec<String>) -> bool {
+	self.get(name, &vec![]).is_some()
+    }
+
     pub fn get(&self, name: &Vec<String>, module_name: &Vec<String>) -> Option<Value> {
         if name.len() == 1 {
             let value = self.get_from_frame(&name[0]);

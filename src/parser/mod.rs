@@ -64,6 +64,7 @@ pub enum Atom {
     Char(char),
     QuotedSymbol(Vec<String>),
     Null,
+    Placeholder,
 }
 
 impl std::fmt::Display for Atom {
@@ -96,7 +97,8 @@ impl std::fmt::Display for Atom {
 		}
 		Ok(())
 	    },
-	    Atom::Null => write!(f, "null"),
+	    Atom::Null => write!(f, "nil"),
+	    Atom::Placeholder => write!(f, "..."),
 	}
     }
 }
@@ -113,6 +115,7 @@ impl Hash for Atom {
 	    Atom::Char(c) => c.hash(state),
 	    Atom::QuotedSymbol(s) => s.hash(state),
 	    Atom::Null => "null".hash(state),
+	    Atom::Placeholder => "placeholder".hash(state),
 	}
     }
 }
@@ -172,7 +175,7 @@ peg::parser!{
 		    Err("not symbol but a quoted list")
 		} else {
 		    match s {
-			"null" => Err("not symbol but null"),
+			"nil" => Err("not symbol but null"),
 			"#|" => Err("not symbol but comment"),
 			_ => Ok(s.to_string()),
 		    }
@@ -230,6 +233,8 @@ peg::parser!{
 		 / i:(integer()) { Atom::Integer(i) }
 	         / k:(keyword()) { Atom::Keyword(k) }
 	/ b:(boolean()) { Atom::Boolean(b) }
+	/ "nil" { Atom::Null }
+	/ "..." { Atom::Placeholder }
 	/ q:(quoted_symbol()) { Atom::QuotedSymbol(q) }
 	/ s:(scoped_symbol()) { Atom::Symbol(s) }
 	pub(crate) rule paren_list() -> Vec<Sexpr>

@@ -8,13 +8,14 @@ use crate::interpreter::value::FunctionShape;
 use crate::interpreter::value::Value;
 use crate::interpreter::context::Context;
 use crate::interpreter::module::Module;
+use crate::interpreter::kwargs::Kwargs;
 
 
 fn stdlib_string_to_ipv4_shape() -> FunctionShape {
     FunctionShape::new(vec!["string".to_string()])
 }
 
-fn stdlib_string_to_ipv4(context: &mut Context, args: Vec<Value>, keyword_args: HashMap<String, Value>) -> HelperResult<Value> {
+fn stdlib_string_to_ipv4(context: &mut Context, args: Vec<Value>, keyword_args: Kwargs) -> HelperResult<Value> {
     let string = if let Some(string) = args.get(0) {
 	string.get_string(context)?.clone()
     } else if let Some(string) = keyword_args.get("string") {
@@ -34,7 +35,7 @@ fn stdlib_string_to_ipv6_shape() -> FunctionShape {
     FunctionShape::new(vec!["string".to_string()])
 }
 
-fn stdlib_string_to_ipv6(context: &mut Context, args: Vec<Value>, keyword_args: HashMap<String, Value>) -> HelperResult<Value> {
+fn stdlib_string_to_ipv6(context: &mut Context, args: Vec<Value>, keyword_args: Kwargs) -> HelperResult<Value> {
     let string = if let Some(string) = args.get(0) {
 	string.get_string(context)?.clone()
     } else if let Some(string) = keyword_args.get("string") {
@@ -54,7 +55,7 @@ fn stdlib_string_to_socket_addr_shape() -> FunctionShape {
 	FunctionShape::new(vec!["string".to_string()])
 }
 
-fn stdlib_string_to_socket_addrv4(context: &mut Context, args: Vec<Value>, keyword_args: HashMap<String, Value>) -> HelperResult<Value> {
+fn stdlib_string_to_socket_addrv4(context: &mut Context, args: Vec<Value>, keyword_args: Kwargs) -> HelperResult<Value> {
     let string = if let Some(string) = args.get(0) {
 	string.get_string(context)?.clone()
     } else if let Some(string) = keyword_args.get("string") {
@@ -70,7 +71,7 @@ fn stdlib_string_to_socket_addrv4(context: &mut Context, args: Vec<Value>, keywo
     Ok(addr)
 }
 
-fn stdlib_string_to_socket_addrv6(context: &mut Context, args: Vec<Value>, keyword_args: HashMap<String, Value>) -> HelperResult<Value> {
+fn stdlib_string_to_socket_addrv6(context: &mut Context, args: Vec<Value>, keyword_args: Kwargs) -> HelperResult<Value> {
     let string = if let Some(string) = args.get(0) {
 	string.get_string(context)?.clone()
     } else if let Some(string) = keyword_args.get("string") {
@@ -90,7 +91,7 @@ fn stdlib_udp_socket_shape() -> FunctionShape {
     FunctionShape::new(vec!["addr".to_string()])
 }
 
-fn stdlib_udp_socket(context: &mut Context, args: Vec<Value>, keyword_args: HashMap<String, Value>) -> HelperResult<Value> {
+fn stdlib_udp_socket(context: &mut Context, args: Vec<Value>, keyword_args: Kwargs) -> HelperResult<Value> {
     let addr = if let Some(addr) = args.get(0) {
 	addr.clone()
     } else if let Some(addr) = keyword_args.get("addr") {
@@ -117,7 +118,7 @@ fn stdlib_tcp_socket_shape() -> FunctionShape {
     FunctionShape::new(vec!["addr".to_string()])
 }
 
-fn stdlib_tcp_socket(context: &mut Context, args: Vec<Value>, keyword_args: HashMap<String, Value>) -> HelperResult<Value> {
+fn stdlib_tcp_socket(context: &mut Context, args: Vec<Value>, keyword_args: Kwargs) -> HelperResult<Value> {
     let addr = if let Some(addr) = args.get(0) {
 	addr.clone()
     } else if let Some(addr) = keyword_args.get("addr") {
@@ -144,7 +145,7 @@ fn stdlib_tcp_listener_shape() -> FunctionShape {
     FunctionShape::new(vec!["addr".to_string()])
 }
 
-fn stdlib_tcp_listener(context: &mut Context, args: Vec<Value>, keyword_args: HashMap<String, Value>) -> HelperResult<Value> {
+fn stdlib_tcp_listener(context: &mut Context, args: Vec<Value>, keyword_args: Kwargs) -> HelperResult<Value> {
     let addr = if let Some(addr) = args.get(0) {
 	addr.clone()
     } else if let Some(addr) = keyword_args.get("addr") {
@@ -171,7 +172,7 @@ fn stdlib_connect_shape() -> FunctionShape {
     FunctionShape::new(vec!["socket".to_string(), "addr".to_string()])
 }
 
-fn stdlib_connect(context: &mut Context, args: Vec<Value>, keyword_args: HashMap<String, Value>) -> HelperResult<Value> {
+fn stdlib_connect(context: &mut Context, args: Vec<Value>, keyword_args: Kwargs) -> HelperResult<Value> {
     let socket = if let Some(socket) = args.get(0) {
 	socket.clone()
     } else if let Some(socket) = keyword_args.get("socket") {
@@ -223,7 +224,7 @@ fn stdlib_accept_shape() -> FunctionShape {
     FunctionShape::new(vec!["listener".to_string()])
 }
 
-fn stdlib_accept(context: &mut Context, args: Vec<Value>, keyword_args: HashMap<String, Value>) -> HelperResult<Value> {
+fn stdlib_accept(context: &mut Context, args: Vec<Value>, keyword_args: Kwargs) -> HelperResult<Value> {
     let listener = if let Some(listener) = args.get(0) {
 	listener.clone()
     } else if let Some(listener) = keyword_args.get("listener") {
@@ -251,7 +252,7 @@ fn stdlib_set_nonblocking_shape() -> FunctionShape {
     FunctionShape::new(vec!["socket".to_string(), "nonblocking".to_string()])
 }
 
-fn stdlib_set_nonblocking(context: &mut Context, args: Vec<Value>, keyword_args: HashMap<String, Value>) -> HelperResult<Value> {
+fn stdlib_set_nonblocking(context: &mut Context, args: Vec<Value>, keyword_args: Kwargs) -> HelperResult<Value> {
     let socket = if let Some(socket) = args.get(0) {
 	socket.clone()
     } else if let Some(socket) = keyword_args.get("socket") {
@@ -288,7 +289,7 @@ fn stdlib_send_shape() -> FunctionShape {
     FunctionShape::new(vec!["socket".to_string(), "data".to_string()])
 }
 
-fn stdlib_send(context: &mut Context, args: Vec<Value>, keyword_args: HashMap<String, Value>) -> HelperResult<Value> {
+fn stdlib_send(context: &mut Context, args: Vec<Value>, keyword_args: Kwargs) -> HelperResult<Value> {
     let socket = if let Some(socket) = args.get(0) {
 	socket.clone()
     } else if let Some(socket) = keyword_args.get("socket") {
@@ -367,7 +368,7 @@ fn stdlib_receive_shape() -> FunctionShape {
     FunctionShape::new(vec!["socket".to_string()])
 }
 
-fn stdlib_receive(context: &mut Context, args: Vec<Value>, keyword_args: HashMap<String, Value>) -> HelperResult<Value> {
+fn stdlib_receive(context: &mut Context, args: Vec<Value>, keyword_args: Kwargs) -> HelperResult<Value> {
     let socket = if let Some(socket) = args.get(0) {
 	socket.clone()
     } else if let Some(socket) = keyword_args.get("socket") {
@@ -399,7 +400,7 @@ fn stdlib_close_shape() -> FunctionShape {
     FunctionShape::new(vec!["socket".to_string()])
 }
 
-fn stdlib_close(context: &mut Context, args: Vec<Value>, keyword_args: HashMap<String, Value>) -> HelperResult<Value> {
+fn stdlib_close(context: &mut Context, args: Vec<Value>, keyword_args: Kwargs) -> HelperResult<Value> {
     let mut socket = if let Some(socket) = args.get(0) {
 	socket.clone()
     } else if let Some(socket) = keyword_args.get("socket") {

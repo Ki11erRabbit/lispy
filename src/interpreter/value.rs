@@ -1,5 +1,4 @@
 use rug::Integer;
-use std::collections::HashMap;
 use std::any::Any;
 use crate::parser::Atom;
 use crate::parser::Sexpr;
@@ -9,6 +8,7 @@ use crate::interpreter::bytecode::RawBytecode;
 use crate::gc::Gc;
 
 use super::bytecode::Bytecode;
+use super::kwargs::Kwargs;
 use super::{context::{ContextFrame, Context}, Exception, InterpreterResult};
 
 
@@ -710,7 +710,7 @@ impl std::fmt::Debug for GcValue {
 #[derive(Clone)]
 pub enum Function {
     Tree(Vec<String>, Sexpr, ContextFrame, FunctionShape),
-    Native(fn(&mut Context, Vec<Value>, HashMap<String, Value>) -> HelperResult<Value>, FunctionShape),
+    Native(fn(&mut Context, Vec<Value>, Kwargs) -> HelperResult<Value>, FunctionShape),
     Bytecode(Vec<String>, Vec<Bytecode>, FunctionShape),
     //CNative(unsafe extern "C" fn(*mut Context, *mut Value, usize, *mut Value, *mut Exception), FunctionShape),
 }
@@ -724,12 +724,48 @@ impl Function {
 	    _ => {},
 	}
     }
+
+    pub fn call_raw(&self, args: Vec<Value>, kargs: Kwargs, context: &mut Context, module_name: &Vec<String>) -> InterpreterResult {
+	match self {
+	    Function::Tree(fun_args, body, frame, _) => {
+		let frame = frame.clone();
+		context.push_frame(Some(frame));
+		for (arg, value) in fun_args.iter().zip(args.iter()) {
+		    context.define(arg, value.clone());
+		}
+		for (arg, value) in kargs.iter() {
+		    context.define(arg, value.clone());
+		}
+		let new_module_name = module_name.clone().into_iter().rev().skip(1).rev().collect();
+		let value = interpreter::walk_through::walk_through(&body, context, &new_module_name);
+		context.pop_frame();
+		value
+	    },
+	    Function::Native(f, _) => {
+		Ok(Some(f(context, args, kargs)?))
+	    },
+	    Function::Bytecode(fun_args, bytecode, _) => {
+		let frame = ContextFrame::new();
+		context.push_frame(Some(frame));
+		for (arg, value) in fun_args.iter().zip(args.iter()) {
+		    context.define(arg, value.clone());
+		}
+		for (arg, value) in kargs.iter() {
+		    context.define(arg, value.clone());
+		}
+		let new_module_name = module_name.clone().into_iter().rev().skip(1).rev().collect();
+		let value = interpreter::bytecode::run(&bytecode.as_slice(), context, &new_module_name);
+		context.pop_frame();
+		value
+	    },
+	}
+    }
     
     pub fn call(&self, name: &Vec<String>, list: &[Sexpr], context: &mut Context, module_name: &Vec<String>) -> InterpreterResult {
 	match self {
 	    Function::Tree(fun_args, body, frame, shape) => {
 		let mut args = Vec::new();
-		let mut keyword_args = std::collections::HashMap::new();
+		let mut keyword_args = Kwargs::new();
 		let mut iterator = list.iter();
 		while let Some(sexpr) = iterator.next() {
 		    match sexpr {
@@ -776,7 +812,7 @@ impl Function {
 	    },
 	    Function::Native(f, shape) => {
 		let mut args = Vec::new();
-		let mut keyword_args = std::collections::HashMap::new();
+		let mut keyword_args = Kwargs::new();
 		let mut iterator = list.iter();
 		while let Some(sexpr) = iterator.next() {
 		    match sexpr {
@@ -811,7 +847,7 @@ impl Function {
 	    },
 	    Function::Bytecode(fun_args, bytecode, shape) => {
 		let mut args = Vec::new();
-		let mut keyword_args = std::collections::HashMap::new();
+		let mut keyword_args = Kwargs::new();
 		let mut iterator = list.iter();
 		while let Some(sexpr) = iterator.next() {
 		    match sexpr {
@@ -862,7 +898,7 @@ impl Function {
 	}
     }
 
-    pub fn call_from_bytecode(&self, name: &Vec<String>, args: Vec<Value>, kargs: HashMap<String, Value>, context: &mut Context, _: &Vec<String>) -> InterpreterResult {
+    pub fn call_from_bytecode(&self, name: &Vec<String>, args: Vec<Value>, kargs: Kwargs, context: &mut Context, _: &Vec<String>) -> InterpreterResult {
 	match self {
 	    Function::Tree(fun_args, body, frame, shape) => {
 		context.push_frame(Some(frame.clone()));
@@ -937,7 +973,7 @@ impl FunctionShape {
 	}
     }
 
-    pub fn check(&self, name: &Vec<String>, args: &Vec<Value>, keyword_args: &HashMap<String, Value>, context: &mut Context) -> HelperResult<()> {
+    pub fn check(&self, name: &Vec<String>, args: &Vec<Value>, keyword_args: &Kwargs, context: &mut Context) -> HelperResult<()> {
 	if self.args.len() != args.len() + keyword_args.len() {
 	    Err(Box::new(Exception::new(name, "wrong number of arguments", context)))?;
 	}

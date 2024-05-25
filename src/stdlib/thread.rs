@@ -7,13 +7,14 @@ use crate::interpreter::value::Value;
 use crate::interpreter::context::Context;
 use crate::interpreter::module::Module;
 use crate::interpreter::InterpreterResult;
+use crate::interpreter::kwargs::Kwargs;
 
 
 fn stdlib_spawn_shape() -> FunctionShape {
     FunctionShape::new(vec!["function".to_string()])
 }
 
-fn stdlib_spawn(context: &mut Context, args: Vec<Value>, keyword_args: HashMap<String, Value>) -> HelperResult<Value> {
+fn stdlib_spawn(context: &mut Context, args: Vec<Value>, keyword_args: Kwargs) -> HelperResult<Value> {
     let function = if let Some(function) = args.get(0) {
 	function.clone()
     } else if let Some(function) = keyword_args.get("function") {
@@ -29,7 +30,7 @@ fn stdlib_spawn_named_shape() -> FunctionShape {
     FunctionShape::new(vec!["function".to_string(), "name".to_string()])
 }
 
-fn stdlib_spawn_named(context: &mut Context, args: Vec<Value>, keyword_args: HashMap<String, Value>) -> HelperResult<Value> {
+fn stdlib_spawn_named(context: &mut Context, args: Vec<Value>, keyword_args: Kwargs) -> HelperResult<Value> {
     let function = if let Some(function) = args.get(0) {
 	function.clone()
     } else if let Some(function) = keyword_args.get("function") {
@@ -78,7 +79,7 @@ fn stdlib_join_shape() -> FunctionShape {
     FunctionShape::new(vec!["thread".to_string()])
 }
 
-fn stdlib_join(context: &mut Context, args: Vec<Value>, keyword_args: HashMap<String, Value>) -> HelperResult<Value> {
+fn stdlib_join(context: &mut Context, args: Vec<Value>, keyword_args: Kwargs) -> HelperResult<Value> {
     let mut handle = if let Some(handle) = args.get(0) {
 	handle.clone()
     } else if let Some(handle) = keyword_args.get("handle") {
@@ -99,7 +100,7 @@ fn stdlib_thread_name_shape() -> FunctionShape {
     FunctionShape::new(vec![])
 }
 
-fn stdlib_thread_name(context: &mut Context, _: Vec<Value>, _: HashMap<String, Value>) -> HelperResult<Value> {
+fn stdlib_thread_name(context: &mut Context, _: Vec<Value>, _: Kwargs) -> HelperResult<Value> {
     let output = match std::thread::current().name() {
 	Some(name) => {
 	    Value::new_string(name, context)
@@ -115,7 +116,7 @@ fn stdlib_thread_is_named_shape() -> FunctionShape {
     FunctionShape::new(vec![])
 }
 
-fn stdlib_thread_is_named(_: &mut Context, _: Vec<Value>, _: HashMap<String, Value>) -> HelperResult<Value> {
+fn stdlib_thread_is_named(_: &mut Context, _: Vec<Value>, _: Kwargs) -> HelperResult<Value> {
     let output = match std::thread::current().name() {
 	Some(_) => {
 	    Value::new_boolean(true)

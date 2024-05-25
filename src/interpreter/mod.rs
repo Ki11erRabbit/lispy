@@ -10,6 +10,7 @@ pub mod bytecode;
 pub mod context;
 pub mod value;
 pub mod module;
+pub mod kwargs;
 
 pub type InterpreterResult = Result<Option<Value>, Box<Exception>>;
 pub type HelperResult<T> = std::result::Result<T, Box<Exception>>;

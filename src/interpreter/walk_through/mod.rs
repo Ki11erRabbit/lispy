@@ -60,6 +60,10 @@ pub fn walk_through(sexpr: &Sexpr, context: &mut Context, module_name: &Vec<Stri
                 Atom::Null => {
                     Ok(Some(Value::new_nil()))
                 }
+		Atom::Placeholder => {
+		    let empty: Vec<&str> = Vec::new();
+		    Err(Box::new(Exception::new(&empty, "not yet implemented", context)))
+		}
             }
         },
         Sexpr::QuotedList(list) => {

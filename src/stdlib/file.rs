@@ -8,13 +8,14 @@ use crate::interpreter::value::FunctionShape;
 use crate::interpreter::value::Value;
 use crate::interpreter::context::Context;
 use crate::interpreter::module::Module;
+use crate::interpreter::kwargs::Kwargs;
 
 
 fn stdlib_open_shape() -> FunctionShape {
     FunctionShape::new(vec!["filename".to_string(), "mode".to_string()])
 }
 
-fn stdlib_open(context: &mut Context, args: Vec<Value>, keyword_args: HashMap<String, Value>) -> HelperResult<Value> {
+fn stdlib_open(context: &mut Context, args: Vec<Value>, keyword_args: Kwargs) -> HelperResult<Value> {
     let filename = if let Some(filename) = args.get(0) {
 	filename.get_string(context)?.clone()
     } else if let Some(filename) = keyword_args.get("filename") {
@@ -54,7 +55,7 @@ fn stdlib_read_string_shape() -> FunctionShape {
     FunctionShape::new(vec!["file".to_string()])
 }
 
-fn stdlib_read_string(context: &mut Context, args: Vec<Value>, keyword_args: HashMap<String, Value>) -> HelperResult<Value> {
+fn stdlib_read_string(context: &mut Context, args: Vec<Value>, keyword_args: Kwargs) -> HelperResult<Value> {
     let mut file = if let Some(file) = args.get(0) {
 	file.clone()
     } else if let Some(file) = keyword_args.get("file") {
@@ -75,7 +76,7 @@ fn stdlib_write_string_shape() -> FunctionShape {
     FunctionShape::new(vec!["file".to_string(), "content".to_string()])
 }
 
-fn stdlib_write_string(context: &mut Context, args: Vec<Value>, keyword_args: HashMap<String, Value>) -> HelperResult<Value> {
+fn stdlib_write_string(context: &mut Context, args: Vec<Value>, keyword_args: Kwargs) -> HelperResult<Value> {
     let mut file = if let Some(file) = args.get(0) {
 	file.clone()
     } else if let Some(file) = keyword_args.get("file") {
@@ -103,7 +104,7 @@ fn stdlib_close_shape() -> FunctionShape {
     FunctionShape::new(vec!["file".to_string()])
 }
 
-fn stdlib_close(context: &mut Context, args: Vec<Value>, keyword_args: HashMap<String, Value>) -> HelperResult<Value> {
+fn stdlib_close(context: &mut Context, args: Vec<Value>, keyword_args: Kwargs) -> HelperResult<Value> {
     let mut file = if let Some(file) = args.get(0) {
 	file.clone()
     } else if let Some(file) = keyword_args.get("file") {

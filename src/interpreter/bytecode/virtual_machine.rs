@@ -1,10 +1,10 @@
-use std::collections::HashMap;
 
 use crate::interpreter::value::{Struct, Enum};
 use crate::interpreter::{bytecode::Bytecode, value::Value, context::Context};
 use crate::interpreter::InterpreterResult;
 use crate::interpreter::bytecode::RawBytecode;
 use crate::interpreter::Exception;
+use crate::interpreter::kwargs::Kwargs;
 
 
 
@@ -18,7 +18,7 @@ pub struct VirtualMachine<'a> {
     instructions: &'a [Bytecode],
     pc: usize,
     stack: Vec<Value>,
-    keywords: Option<HashMap<String, Value>>, 
+    keywords: Option<Kwargs>, 
 }
 
 impl<'a> VirtualMachine<'a> {
@@ -90,7 +90,7 @@ impl<'a> VirtualMachine<'a> {
 		    if let Some(ref mut keywords) = self.keywords {
 			keywords.insert(keyword.get_symbol(context)?.last().unwrap().clone(), value);
 		    } else {
-			let mut keywords = HashMap::new();
+			let mut keywords = Kwargs::new();
 			keywords.insert(keyword.get_symbol(context)?.last().unwrap().clone(), value);
 			self.keywords = Some(keywords);
 		    }
@@ -102,7 +102,7 @@ impl<'a> VirtualMachine<'a> {
 		    let kwarg = if let Some(keywords) = self.keywords.take() {
 			keywords
 		    } else {
-			HashMap::new()
+			Kwargs::new()
 		    };
 		    let mut args = Vec::new();
 		    for _ in 0..*arg_count {
