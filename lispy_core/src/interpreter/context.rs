@@ -90,7 +90,8 @@ impl Context {
 	let char_name = Value::new_symbol(vec!["char".to_string()], &mut ctx);
 	let rust_value_name = Value::new_symbol(vec!["rust-value".to_string()], &mut ctx);
 	let bytevector_name = Value::new_symbol(vec!["bytevector".to_string()], &mut ctx);
-	let type_table = vec![nil_name, string_name, integer_name, float_name, boolean_name, symbol_name, list_name, vector_name, function_name, char_name, sexpr_name, rust_value_name, bytevector_name];
+	let c_value_name = Value::new_symbol(vec!["c-value".to_string()], &mut ctx);
+	let type_table = vec![nil_name, string_name, integer_name, float_name, boolean_name, symbol_name, list_name, vector_name, function_name, char_name, sexpr_name, rust_value_name, bytevector_name, c_value_name];
 	type_table.iter().for_each(|v| v.protect());
 	ctx.type_table = Arc::new(RwLock::new(type_table));
 	

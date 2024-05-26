@@ -1,4 +1,4 @@
-use std::any::Any;
+use std::{any::Any, ffi::{CString, c_char, c_void}};
 use rug::Integer;
 use crate::parser::Sexpr;
 use crate::interpreter::HelperResult;
@@ -8,13 +8,12 @@ use crate::interpreter::value::r#enum::Enum;
 
 use crate::gc::Gc;
 
-use super::{context::Context, Exception, InterpreterResult};
+use super::{context::Context, Exception};
 
 pub mod function;
 pub mod r#struct;
 pub mod r#enum;
 
-#[repr(C)]
 #[derive(Clone)]
 pub struct Value {
     raw: RawValue, 
@@ -581,6 +580,7 @@ impl Value {
 		    GcValue::Struct(s) => s.get_name_index(),
 		    GcValue::Enum(e) => e.get_name_index(),
 		    GcValue::ByteVector(_) => 12,
+		    GcValue::CValue(_, _) => 13,
 		}
 	    },
 	    RawValue::Integer(_) => 2,
@@ -594,12 +594,281 @@ impl Value {
 }
 
 // C API Functions for Value
-
 impl Value {
     #[no_mangle]
     pub extern "C" fn value_new_nil() -> *mut Self {
 	Box::into_raw(Box::new(Value::new_nil()))
     }
+
+    #[no_mangle]
+    pub extern "C" fn value_new_string(value: *mut c_char, len: usize, context: *mut Context) -> *mut Self {
+	let context = unsafe { &mut *context };
+	let pointer: *mut i8;
+	unsafe {
+	    pointer = std::alloc::alloc(std::alloc::Layout::array::<c_char>(len).unwrap()) as *mut i8;
+	    std::ptr::copy(pointer, value, 0);
+	}
+	let value = unsafe { CString::from_raw(pointer) };
+	let value = value.to_str().unwrap();
+	Box::into_raw(Box::new(Value::new_string(value, context)))
+    }
+
+    #[no_mangle]
+    pub extern "C" fn value_new_integer(value: *mut c_char, len: usize) -> *mut Self {
+	let pointer: *mut i8;
+	unsafe {
+	    pointer = std::alloc::alloc(std::alloc::Layout::array::<c_char>(len).unwrap()) as *mut i8;
+	    std::ptr::copy(pointer, value, 0);
+	}
+	let value = unsafe { CString::from_raw(pointer) };
+	let value = value.to_str().unwrap();
+	Box::into_raw(Box::new(Value::new_integer(value)))
+    }
+
+    #[no_mangle]
+    pub extern "C" fn value_new_float(value: f64) -> *mut Self {
+	Box::into_raw(Box::new(Value::new_float(value)))
+    }
+
+    #[no_mangle]
+    pub extern "C" fn value_new_boolean(value: bool) -> *mut Self {
+	Box::into_raw(Box::new(Value::new_boolean(value)))
+    }
+
+    #[no_mangle]
+    pub extern "C" fn value_new_symbol(value: *mut *mut c_char, len: usize, context: *mut Context) -> *mut Self {
+	let context = unsafe { &mut *context };
+	let mut value = value;
+	//let mut symbols = Vec::new();
+	todo!("create pointers to copy from C to Rust");
+    }
+
+    #[no_mangle]
+    pub extern "C" fn value_new_char(value: u32) -> *mut Self {
+	Box::into_raw(Box::new(Value::new_char(unsafe {char::from_u32_unchecked(value)})))
+    }
+
+    #[no_mangle]
+    pub extern "C" fn value_new_pair(car: *mut Self, cdr: *mut Self, context: *mut Context) -> *mut Self {
+	let context = unsafe { &mut *context };
+	let car = unsafe { Box::from_raw(car) };
+	let cdr = unsafe { Box::from_raw(cdr) };
+	Box::into_raw(Box::new(Value::new_pair(*car, *cdr, context)))
+    }
+
+    #[no_mangle]
+    pub extern "C" fn value_new_vector(value: *mut *mut Self, len: usize, context: *mut Context) -> *mut Self {
+	let context = unsafe { &mut *context };
+	let mut value = value;
+	let mut values = Vec::new();
+	for _ in 0..len {
+	    let v = unsafe { Box::from_raw(*value) };
+	    values.push(*v);
+	    unsafe {value = value.add(1);}
+	}
+	Box::into_raw(Box::new(Value::new_vector(values, context)))
+    }
+
+    #[no_mangle]
+    pub extern "C" fn value_new_c_value(value: *mut c_void, free: unsafe extern "C" fn(*mut c_void), context: *mut Context) -> *mut Self {
+	let context = unsafe { &mut *context };
+	let gc_object = Gc::new(GcValue::CValue(value, free));
+	context.send_gc(gc_object.clone());
+	Box::into_raw(Box::new(Value {
+	    raw: RawValue::Gc(gc_object),
+	}))
+    }
+
+    #[no_mangle]
+    pub extern "C" fn value_get_string(value: *mut Self, context: *mut Context) -> *const c_char {
+	let value = unsafe { &*value };
+	let context = unsafe { &mut *context };
+	let result = value.get_string(context);
+	match result {
+	    Ok(s) => {
+		let s = s.as_str();
+		let c_string = CString::new(s).unwrap();
+		c_string.into_raw()
+	    },
+	    Err(_) => {
+		let c_string = CString::new("").unwrap();
+		c_string.into_raw()
+	    },
+	}
+    }
+
+    #[no_mangle]
+    pub extern "C" fn value_free_string(value: *mut c_char) {
+	unsafe {
+	    drop(CString::from_raw(value));
+	}
+    }
+
+
+    #[no_mangle]
+    pub extern "C" fn value_get_float(value: *mut Self, context: *mut Context) -> f64 {
+	let value = unsafe { &*value };
+	let context = unsafe { &mut *context };
+	let result = value.get_float(context);
+	match result {
+	    Ok(f) => f,
+	    Err(_) => 0.0,
+	}
+    }
+
+    #[no_mangle]
+    pub extern "C" fn value_get_boolean(value: *mut Self, context: *mut Context) -> bool {
+	let value = unsafe { &*value };
+	let context = unsafe { &mut *context };
+	let result = value.get_boolean(context);
+	match result {
+	    Ok(b) => b,
+	    Err(_) => false,
+	}
+    }
+
+    #[no_mangle]
+    pub extern "C" fn value_get_symbol(value: *mut Self, context: *mut Context) -> *mut *mut c_char {
+	let value = unsafe { &*value };
+	let context = unsafe { &mut *context };
+	let result = value.get_symbol(context);
+	match result {
+	    Ok(s) => {
+		let mut symbols = Vec::new();
+		for symbol in s.iter() {
+		    let c_string = CString::new(symbol.as_str()).unwrap();
+		    symbols.push(c_string.into_raw());
+		}
+		let mut symbols = symbols.into_boxed_slice();
+		let ptr = symbols.as_mut_ptr();
+		std::mem::forget(symbols);
+		ptr
+	    },
+	    Err(_) => {
+		std::ptr::null_mut()
+	    },
+	}
+    }
+
+    #[no_mangle]
+    pub extern "C" fn value_free_symbol(value: *mut *mut c_char) {
+	let mut value = value;
+	while !value.is_null() {
+	    let symbol = unsafe { *value };
+	    unsafe {
+		drop(CString::from_raw(symbol));
+		value = value.add(1);
+	    }
+	}
+    }
+
+    #[no_mangle]
+    pub extern "C" fn value_get_char(value: *mut Self, context: *mut Context) -> u32 {
+	let value = unsafe { &*value };
+	let context = unsafe { &mut *context };
+	let result = value.get_char(context);
+	match result {
+	    Ok(c) => c as u32,
+	    Err(_) => 0,
+	}
+    }
+
+    #[no_mangle]
+    pub extern "C" fn value_get_pair(value: *mut Self, context: *mut Context) -> *mut *mut Self {
+	let value = unsafe { &*value };
+	let context = unsafe { &mut *context };
+	let result = value.get_pair(context);
+	match result {
+	    Ok((car, cdr)) => {
+		let car = Box::into_raw(Box::new(car.clone()));
+		let cdr = Box::into_raw(Box::new(cdr.clone()));
+		let mut pair = Vec::new();
+		pair.push(car);
+		pair.push(cdr);
+		let mut pair = pair.into_boxed_slice();
+		let ptr = pair.as_mut_ptr();
+		std::mem::forget(pair);
+		ptr
+	    },
+	    Err(_) => std::ptr::null_mut(),
+	}
+    }
+
+    #[no_mangle]
+    pub extern "C" fn value_free_pair(value: *mut *mut Self) {
+	let mut value = value;
+	while !value.is_null() {
+	    let v = unsafe { *value };
+	    unsafe {
+		drop(Box::from_raw(v));
+		value = value.add(1);
+	    }
+	}
+    }
+
+    #[no_mangle]
+    pub extern "C" fn value_get_vector(value: *mut Self, context: *mut Context) -> *mut *mut Self {
+	let value = unsafe { &*value };
+	let context = unsafe { &mut *context };
+	let result = value.get_vector(context);
+	match result {
+	    Ok(v) => {
+		let mut values = Vec::new();
+		for value in v.iter() {
+		    values.push(Box::into_raw(Box::new(value.clone())));
+		}
+		let mut values = values.into_boxed_slice();
+		let ptr = values.as_mut_ptr();
+		std::mem::forget(values);
+		ptr
+	    },
+	    Err(_) => {
+		return std::ptr::null_mut();
+	    },
+	}
+    }
+
+    #[no_mangle]
+    pub extern "C" fn value_free_vector(value: *mut *mut Self) {
+	let mut value = value;
+	while !value.is_null() {
+	    let v = unsafe { *value };
+	    unsafe {
+		drop(Box::from_raw(v));
+		value = value.add(1);
+	    }
+	}
+    }
+
+    #[no_mangle]
+    pub extern "C" fn value_get_bytevector(value: *mut Self, context: *mut Context) -> *mut u8 {
+	let value = unsafe { &*value };
+	let context = unsafe { &mut *context };
+	let result = value.get_bytevector(context);
+	match result {
+	    Ok(v) => {
+		let mut values = Vec::new();
+		for value in v.iter() {
+		    values.push(*value);
+		}
+		let mut values = values.into_boxed_slice();
+		let ptr = values.as_mut_ptr();
+		std::mem::forget(values);
+		ptr
+	    },
+	    Err(_) => {
+		return std::ptr::null_mut();
+	    },
+	}
+    }
+
+    #[no_mangle]
+    pub extern "C" fn value_free_bytevector(value: *mut u8) {
+	unsafe {
+	    drop(Box::from_raw(value));
+	}
+    }
+
 
 }
 
@@ -641,7 +910,6 @@ impl std::fmt::Debug for Value {
     }
 }
 
-#[repr(C)]
 #[derive(Clone)]
 enum RawValue {
     Gc(Gc<GcValue>),
@@ -652,7 +920,6 @@ enum RawValue {
     Char(char),
 }
 
-#[repr(C)]
 pub enum GcValue {
     String(String),
     Sexpr(Sexpr),
@@ -664,6 +931,20 @@ pub enum GcValue {
     Struct(Struct),
     Enum(Enum),
     ByteVector(Vec<u8>),
+    CValue(*mut c_void, unsafe extern "C" fn(*mut c_void)),
+}
+
+impl Drop for GcValue {
+    fn drop(&mut self) {
+	match self {
+	    GcValue::CValue(value, free) => {
+		unsafe {
+		    free(*value);
+		}
+	    },
+	    _ => {},
+	}
+    }
 }
 
 impl std::fmt::Display for GcValue {
@@ -708,6 +989,9 @@ impl std::fmt::Display for GcValue {
 	    },
 	    GcValue::ByteVector(v) => {
 		write!(f, "#u8({})", v.iter().map(|b| format!("{}", b)).collect::<Vec<String>>().join(" "))
+	    },
+	    GcValue::CValue(_, _) => {
+		write!(f, "<c value>")
 	    },
 	}
     }

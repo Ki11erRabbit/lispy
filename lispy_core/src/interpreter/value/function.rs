@@ -16,13 +16,15 @@ pub enum CFunctionOutput {
 }
 
 impl CFunctionOutput {
-    pub extern "C" fn new_value(&mut self, value: *mut Value) {
+    #[no_mangle]
+    pub extern "C" fn set_return_value(&mut self, value: *mut Value) {
 	unsafe {
 	    let value = Box::from_raw(value);
 	    *self = CFunctionOutput::Value(*value.clone());
 	}
     }
-    pub extern "C" fn new_exception(&mut self, exception: Exception) {
+    #[no_mangle]
+    pub extern "C" fn set_exception(&mut self, exception: Exception) {
 	*self = CFunctionOutput::Exception(exception);
     }
 }
