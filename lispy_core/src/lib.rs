@@ -1,22 +1,21 @@
-use std::collections::HashSet;
 
-use crate::interpreter::context::Context;
-use crate::interpreter::value::Value;
-use crate::interpreter::value::Function;
-use crate::interpreter::value::FunctionShape;
-use crate::interpreter::kwargs::Kwargs;
-use crate::interpreter::value::CFunctionOutput;
-
-
-pub mod parser;
 pub mod interpreter;
-pub mod stdlib;
 pub mod gc;
-pub mod ffi;
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let args: Vec<String> = std::env::args().collect();
+pub mod parser;
+pub mod stdlib;
 
-    let file_content = std::fs::read_to_string(&args[1])?;
+use std::collections::HashSet;
+use interpreter::context::Context;
+use interpreter::value::Value;
+use interpreter::value::function::Function;
+use interpreter::value::function::FunctionShape;
+use interpreter::kwargs::Kwargs;
+use interpreter::value::function::CFunctionOutput;
+
+
+
+pub fn run_from_file(file_name: &str, so_load_path: &str) -> Result<(), Box<dyn std::error::Error>> {
+    let file_content = std::fs::read_to_string(file_name)?;
     let mut macros = HashSet::new();
     let file = parser::parse(&file_content, &mut macros)?;
 
@@ -42,7 +41,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 	let function = Function::CNative(*func, shape);
 	let function = Value::new_function(function, &mut context);
 	context.define("hello-c", function);
-	interpreter::walk_through::run(file, &mut context, &vec!["main".to_string()])?;
+	interpreter::walkthrough::run(file, &mut context, &vec!["main".to_string()])?;
     }
 
     //interpreter::walk_through::run(file, &mut context, &vec!["main".to_string()])?;
