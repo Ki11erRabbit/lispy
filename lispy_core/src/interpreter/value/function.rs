@@ -1,4 +1,4 @@
-use std::ffi::CString;
+use std::ffi::c_char;
 use crate::parser::Atom;
 use crate::parser::Sexpr;
 use crate::interpreter::{self, HelperResult};
@@ -411,7 +411,7 @@ impl FunctionShape {
     #[no_mangle]
     pub extern "C" fn new_function_shape(args: *mut *mut c_char, len: usize, str_lens: *mut usize) -> *mut FunctionShape {
 	//TODO: check this function for memory issues
-	let pointer = std::ptr::null_mut();
+	let pointer: *mut i8 = std::ptr::null_mut();
 	let mut arg_vec = Vec::new();
 	unsafe {
 	    for i in 0..len {
