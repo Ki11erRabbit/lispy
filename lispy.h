@@ -2,6 +2,8 @@
 
 typedef void* value_t;
 typedef void* context_t;
+typedef void* exception_t;
+typedef void* output_t;
 
 extern value_t value_new_nil(void);
 extern value_t value_new_string(const char* s, size_t len, context_t ctx);
@@ -27,4 +29,9 @@ extern value_t* value_get_vector(value_t v, context_t ctx);
 extern void value_free_vector(value_t* v);
 extern uint8_t* value_get_bytevector(value_t v, context_t ctx);
 extern void value_free_bytevector(uint8_t* v);
+
+extern exception_t exception_new(char** who, size_t symbol_len, size_t* symbol_lens, char* message, size_t string_len, context_t ctx);
+
+extern void set_return_value(output_t output, value_t value);
+extern void set_exception_value(output_t output, exception_t value);
 

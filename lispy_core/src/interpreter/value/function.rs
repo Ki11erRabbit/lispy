@@ -24,8 +24,11 @@ impl CFunctionOutput {
 	}
     }
     #[no_mangle]
-    pub extern "C" fn set_exception(&mut self, exception: Exception) {
-	*self = CFunctionOutput::Exception(exception);
+    pub extern "C" fn set_exception_value(&mut self, exception: *mut Exception) {
+	unsafe {
+	    let exception = Box::from_raw(exception);
+	    *self = CFunctionOutput::Exception(*exception.clone());
+	}
     }
 }
 
