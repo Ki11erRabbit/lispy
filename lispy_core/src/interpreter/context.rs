@@ -1,4 +1,5 @@
-use std::collections::{HashMap, HashSet}; 
+use std::collections::{HashMap, HashSet};
+use std::ffi::c_char;
 use crate::gc::{self, Gc};
 use crate::interpreter::value::Value;
 use crate::interpreter::module::Module;
@@ -354,8 +355,55 @@ impl Context {
     pub fn get_macros(&self) -> RwLockWriteGuard<HashSet<Macro>> {
 	self.macros.write().unwrap()
     }
+
+    pub fn add_dynamic_lib(&self, lib: libloading::Library) {
+	let mut dynamic_libraries = self.dynamic_libraries.write().unwrap();
+	dynamic_libraries.push(lib);
+    }
 	
 }
+
+// FFI functions for context
+impl Context {
+    #[no_mangle]
+    pub extern "C" fn context_define(context: *mut Context, name: *const c_char, name_len: usize, value: *mut Value) {
+	let mut str_buf: Vec<u8> = vec![0; name_len];
+	for i in 0..name_len {
+	    str_buf[i] = unsafe { *name.add(i) as u8 };// TODO: make this safe
+	}
+	let name = std::str::from_utf8(&str_buf).unwrap();
+	let value = unsafe { value.as_ref() }.unwrap();
+	let context = unsafe { context.as_mut() }.unwrap();
+	context.define(name, value.clone());
+    }
+
+    #[no_mangle]
+    pub extern "C" fn context_push_frame(context: *mut Context) {
+	let context = unsafe { context.as_mut() }.unwrap();
+	context.push_frame(None);
+    }
+
+    #[no_mangle]
+    pub extern "C" fn context_pop_frame(context: *mut Context) -> *mut ContextFrame {
+	let context = unsafe { context.as_mut() }.unwrap();
+	let frame = context.pop_frame().unwrap();
+	Box::into_raw(Box::new(frame))
+    }
+
+    #[no_mangle]
+    pub extern "C" fn context_add_module(context: *mut Context, name: *const u8, name_len: usize, module: *mut Module) {
+	let mut str_buf = vec![0; name_len];
+	for i in 0..name_len {
+	    str_buf[i] = unsafe { *name.add(i) };
+	}
+	let name = std::str::from_utf8(&str_buf).unwrap();
+	let module = unsafe { module.as_ref() }.unwrap().clone();
+	let context = unsafe { context.as_mut() }.unwrap();
+	context.add_module(name, module);
+    }
+
+}
+
 
 unsafe impl Send for Context {}
 unsafe impl Sync for Context {}

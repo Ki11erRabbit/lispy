@@ -97,6 +97,6 @@
         ["hello world" (display "match\n")])
 
 
-(hello-c)
+(ffi.hello-c)
 
 (/ 1 0)

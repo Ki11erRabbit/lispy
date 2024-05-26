@@ -6,6 +6,14 @@ use crate::interpreter::value::Value;
 use super::context::{ContextFrame, Context};
 
 
+#[derive(Clone)]
+enum RawModule {
+    File(String, Vec<String>),
+    Loaded {
+	submodules: Arc<HashMap<String, Module>>,
+	frame: Arc<ContextFrame>,
+    },
+}
 
 #[derive(Clone)]
 pub struct Module {
@@ -120,11 +128,14 @@ impl Module {
 		    
 }
 
-#[derive(Clone)]
-enum RawModule {
-    File(String, Vec<String>),
-    Loaded {
-	submodules: Arc<HashMap<String, Module>>,
-	frame: Arc<ContextFrame>,
-    },
+// FFI functions
+impl Module {
+    #[no_mangle]
+    pub extern "C" fn module_new_loaded(frame: *mut ContextFrame) -> *mut Module {
+	let frame = unsafe { Box::from_raw(frame) };
+	let submodules = HashMap::new();
+	let module = Module::new_loaded(submodules, *frame);
+	Box::into_raw(Box::new(module))
+    }
+
 }

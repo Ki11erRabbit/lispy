@@ -3,7 +3,7 @@ pub mod interpreter;
 pub mod gc;
 pub mod parser;
 pub mod stdlib;
-//pub mod ffi;
+pub mod ffi;
 
 use std::collections::HashSet;
 use interpreter::context::Context;
@@ -34,16 +34,8 @@ pub fn run_from_file(file_name: &str, so_load_path: &str) -> Result<(), Box<dyn 
 	gc::garbage_collect(&mut gc_table, rx);
     });
 
-    //crate::ffi::get_ffi_library_test(&mut context)?;
-    unsafe {
-	let lib = libloading::Library::new("ffi.so")?;
-	let func = lib.get::<unsafe extern "C" fn(*mut Context, *mut Value, usize, *mut Kwargs, *mut CFunctionOutput)>(b"hello_c")?;
-	let shape = FunctionShape::new(vec![]);
-	let function = Function::CNative(*func, shape);
-	let function = Value::new_function(function, &mut context);
-	context.define("hello-c", function);
-	interpreter::walkthrough::run(file, &mut context, &vec!["main".to_string()])?;
-    }
+    crate::ffi::load_dynamic_libs(&mut context, "ffi", ".")?;
+    interpreter::walkthrough::run(file, &mut context, &vec!["main".to_string()])?;
 
     //interpreter::walk_through::run(file, &mut context, &vec!["main".to_string()])?;
     

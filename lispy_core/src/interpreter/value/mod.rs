@@ -2,9 +2,11 @@ use std::{any::Any, ffi::{CString, c_char, c_void}};
 use rug::Integer;
 use crate::parser::Sexpr;
 use crate::interpreter::HelperResult;
-use crate::interpreter::value::function::Function;
 use crate::interpreter::value::r#struct::Struct;
 use crate::interpreter::value::r#enum::Enum;
+use crate::interpreter::value::function::{Function, FunctionShape, CFunctionOutput};
+use crate::interpreter::kwargs::Kwargs;
+
 
 use crate::gc::Gc;
 
@@ -711,6 +713,28 @@ impl Value {
 	Box::into_raw(Box::new(Value {
 	    raw: RawValue::Gc(gc_object),
 	}))
+    }
+
+    #[no_mangle]
+    pub extern "C" fn value_new_function(value: unsafe extern "C" fn(*mut Context, *mut Value, usize, *mut Kwargs, *mut CFunctionOutput), shape: *mut FunctionShape, context: *mut Context) -> *mut Self {
+	let context = unsafe { &mut *context };
+	let shape = unsafe { Box::from_raw(shape) };
+	let function = Function::CNative(value, *shape);
+	let value = Value::new_function(function, context);
+	Box::into_raw(Box::new(value))
+    }
+
+    #[no_mangle]
+    pub extern "C" fn value_new_bytevector(value: *mut u8, len: usize, context: *mut Context) -> *mut Self {
+	let context = unsafe { &mut *context };
+	let mut value = value;
+	let mut values = Vec::new();
+	for _ in 0..len {
+	    let v = unsafe { *value };
+	    values.push(v);
+	    unsafe {value = value.add(1);}
+	}
+	Box::into_raw(Box::new(Value::new_bytevector(values, context)))
     }
 
     #[no_mangle]
