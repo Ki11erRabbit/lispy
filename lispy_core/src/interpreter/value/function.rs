@@ -27,7 +27,7 @@ impl CFunctionOutput {
     pub extern "C" fn set_exception_value(&mut self, exception: *mut Exception) {
 	unsafe {
 	    let exception = Box::from_raw(exception);
-	    *self = CFunctionOutput::Exception(*exception.clone());
+	    *self = CFunctionOutput::Exception(*exception);
 	}
     }
 }
@@ -409,12 +409,22 @@ impl FunctionShape {
     }
 
     #[no_mangle]
-    pub extern "C" fn new_function_shape(args: *mut CString, len: usize) -> FunctionShape {
-	let args = unsafe {
-	    std::slice::from_raw_parts(args, len)
-	};
-	let args = args.iter().map(|s| s.to_str().unwrap().to_string()).collect();
-	FunctionShape::new(args)
+    pub extern "C" fn new_function_shape(args: *mut *mut c_char, len: usize, str_lens: *mut usize) -> *mut FunctionShape {
+	//TODO: check this function for memory issues
+	let pointer = std::ptr::null_mut();
+	let mut arg_vec = Vec::new();
+	unsafe {
+	    for i in 0..len {
+		let arg = *args.offset(i as isize);
+		let len = *str_lens.offset(i as isize);
+		let slice = std::slice::from_raw_parts(arg as *const u8, len);
+		let c_str = std::ffi::CStr::from_bytes_with_nul(slice).expect("invalid c string");
+		let string = c_str.to_str().expect("invalid utf8 string");
+		arg_vec.push(string.to_string());
+	    }
+	}
+	let shape = FunctionShape::new(arg_vec);
+	Box::into_raw(Box::new(shape))
     }
 }
 

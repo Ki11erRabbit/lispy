@@ -3,6 +3,7 @@ pub mod interpreter;
 pub mod gc;
 pub mod parser;
 pub mod stdlib;
+pub mod ffi;
 
 use std::collections::HashSet;
 use interpreter::context::Context;

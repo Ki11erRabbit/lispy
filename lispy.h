@@ -1,9 +1,11 @@
-
+#include <stddef.h>
+#include <stdint.h>
 
 typedef void* value_t;
 typedef void* context_t;
 typedef void* exception_t;
 typedef void* output_t;
+typedef void* fun_shape_t;
 
 extern value_t value_new_nil(void);
 extern value_t value_new_string(const char* s, size_t len, context_t ctx);
@@ -35,3 +37,4 @@ extern exception_t exception_new(char** who, size_t symbol_len, size_t* symbol_l
 extern void set_return_value(output_t output, value_t value);
 extern void set_exception_value(output_t output, exception_t value);
 
+extern fun_shape_t new_function_shape(char** args, size_t len, size_t* str_lens);

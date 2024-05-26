@@ -62,7 +62,8 @@ pub struct Context {
     type_table: Arc<RwLock<Vec<Value>>>,
     symbols_to_table: Arc<RwLock<HashMap<Vec<String>, usize>>>,
     enum_idicies: Arc<RwLock<HashSet<usize>>>,
-    macros: Arc<RwLock<HashSet<Macro>>>
+    macros: Arc<RwLock<HashSet<Macro>>>,
+    dynamic_libraries: Arc<RwLock<Vec<libloading::Library>>>,
 }
 
 impl Context {
@@ -76,6 +77,7 @@ impl Context {
 	    symbols_to_table: Arc::new(RwLock::new(HashMap::new())),
 	    enum_idicies: Arc::new(RwLock::new(HashSet::new())),
 	    macros: Arc::new(RwLock::new(macros)),
+	    dynamic_libraries: Arc::new(RwLock::new(Vec::new())),
 	};
 	let string_name = Value::new_symbol(vec!["string".to_string()], &mut ctx);
 	let integer_name = Value::new_symbol(vec!["integer".to_string()], &mut ctx);
@@ -119,6 +121,7 @@ impl Context {
 	    symbols_to_table: Arc::new(RwLock::new(HashMap::new())),
 	    enum_idicies: Arc::new(RwLock::new(HashSet::new())),
 	    macros: Arc::new(RwLock::new(HashSet::new())),
+	    dynamic_libraries: Arc::new(RwLock::new(Vec::new())),
 	};
 	
 	let stdlib = get_stdlib(&mut ctx);
@@ -368,6 +371,7 @@ impl Clone for Context {
 	    symbols_to_table: self.symbols_to_table.clone(),
 	    enum_idicies: self.enum_idicies.clone(),
 	    macros: self.macros.clone(),
+	    dynamic_libraries: self.dynamic_libraries.clone(),
 	}
     }
 }

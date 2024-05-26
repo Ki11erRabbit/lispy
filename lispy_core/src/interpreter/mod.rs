@@ -37,7 +37,8 @@ impl Exception {
     }
 
     #[no_mangle]
-    pub extern "C" fn exception_new(who: *mut *mut c_char, symbol_len: usize, symbol_lens: *usize, message: *mut c_char, string_len: usize, context: *mut Context) -> *mut Exception {
+    pub extern "C" fn exception_new(who: *mut *mut c_char, symbol_len: usize, symbol_lens: *mut usize, message: *mut c_char, string_len: usize, context: *mut Context) -> *mut Exception {
+	let context = unsafe { &mut *context };
 	let who = Value::new_symbol_from_c(who, symbol_len, symbol_lens, context);
 	let message = Value::new_string_from_c(message, string_len, context);
 	let exception = Box::new(Exception {
