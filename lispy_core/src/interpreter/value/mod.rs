@@ -36,6 +36,21 @@ impl Value {
 	    raw,
 	}
     }
+    pub fn new_string_from_c(value: *mut c_char, len: usize, context: &Context) -> Self {
+	let pointer: *mut i8;
+	unsafe {
+	    pointer = std::alloc::alloc(std::alloc::Layout::array::<c_char>(len).unwrap()) as *mut i8;
+	    std::ptr::copy(pointer, value, 0);
+	}
+	let value = unsafe { CString::from_raw(pointer) };
+	let value = value.to_str().unwrap();
+	let gc_object = Gc::new(GcValue::String(value.to_string()));
+	context.send_gc(gc_object.clone());
+	let raw = RawValue::Gc(gc_object);
+	Value {
+	    raw,
+	}
+    }
     pub fn get_string(&self, context: &Context) -> HelperResult<&String> {
 	match self.raw {
 	    RawValue::Gc(ref gc) => {
@@ -151,6 +166,32 @@ impl Value {
 
     pub fn new_symbol(value: Vec<String>, context: &Context) -> Self {
 	let gc_object = Gc::new(GcValue::Symbol(value));
+	context.send_gc(gc_object.clone());
+	Value {
+	    raw: RawValue::Gc(gc_object),
+	}
+    }
+    pub fn new_symbol_from_c(value: *mut *mut c_char, len: usize, str_lens: *mut usize, context: &Context) -> Self {
+	let mut value = value;
+	let mut str_lens = str_lens;
+	let mut symbols = Vec::new();
+	for _ in 0..len {
+	    let symbol = unsafe { *value };
+	    let len = unsafe { *str_lens };
+	    let pointer: *mut i8;
+	    unsafe {
+		pointer = std::alloc::alloc(std::alloc::Layout::array::<c_char>(len).unwrap()) as *mut i8;
+		std::ptr::copy(pointer, symbol, 0);
+	    }
+	    let symbol = unsafe { CString::from_raw(pointer) };
+	    let symbol = symbol.to_str().unwrap();
+	    symbols.push(symbol.to_string());
+	    unsafe {
+		value = value.add(1);
+		str_lens = str_lens.add(1);
+	    }
+	}
+	let gc_object = Gc::new(GcValue::Symbol(symbols));
 	context.send_gc(gc_object.clone());
 	Value {
 	    raw: RawValue::Gc(gc_object),
@@ -603,14 +644,8 @@ impl Value {
     #[no_mangle]
     pub extern "C" fn value_new_string(value: *mut c_char, len: usize, context: *mut Context) -> *mut Self {
 	let context = unsafe { &mut *context };
-	let pointer: *mut i8;
-	unsafe {
-	    pointer = std::alloc::alloc(std::alloc::Layout::array::<c_char>(len).unwrap()) as *mut i8;
-	    std::ptr::copy(pointer, value, 0);
-	}
-	let value = unsafe { CString::from_raw(pointer) };
-	let value = value.to_str().unwrap();
-	Box::into_raw(Box::new(Value::new_string(value, context)))
+	let value = Value::new_string_from_c(value, len, context);
+	Box::into_raw(Box::new(value))
     }
 
     #[no_mangle]
@@ -636,11 +671,10 @@ impl Value {
     }
 
     #[no_mangle]
-    pub extern "C" fn value_new_symbol(value: *mut *mut c_char, len: usize, context: *mut Context) -> *mut Self {
+    pub extern "C" fn value_new_symbol(value: *mut *mut c_char, len: usize, str_lens: *mut usize, context: *mut Context) -> *mut Self {
 	let context = unsafe { &mut *context };
-	let mut value = value;
-	//let mut symbols = Vec::new();
-	todo!("create pointers to copy from C to Rust");
+	let value = Value::new_symbol_from_c(value, len, str_lens, context);
+	Box::into_raw(Box::new(value))
     }
 
     #[no_mangle]
