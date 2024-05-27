@@ -1,6 +1,8 @@
 pub mod thread;
 pub mod file;
 pub mod network;
+pub mod sync;
+
 use std::collections::HashMap;
 use std::io::Write;
 use std::io::Read;

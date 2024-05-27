@@ -109,6 +109,9 @@ impl Context {
 
 	let network = crate::stdlib::network::get_network_library(&mut ctx);
 	ctx.add_module("network", network);
+
+	let sync = crate::stdlib::sync::get_sync_library(&mut ctx);
+	ctx.add_module("sync", sync);
 	
 	ctx
     }
