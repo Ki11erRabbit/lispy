@@ -12,7 +12,7 @@ use libloading;
 #[link(name = "lispy_core")]
 extern "C" {
     ///pub fn load_module(context: *mut Bindings);
-    pub fn load_module(context: *mut c_void);
+    pub fn lispy_load_module(context: *mut c_void);
 }
 
 struct Bindings {
@@ -53,17 +53,16 @@ pub fn load_dynamic_libs(context: &mut Context, module_name: &str, load_path: &s
 	    let path = path?;
 	    let path = path.path();
 	    let path = path.to_str().unwrap();
-	    if !path.ends_with(".so") {
+	    if !path.ends_with(".so") || !path.ends_with(".dll") || !path.ends_with(".dylib") {
 		continue;
 	    }
 	    let lib = libloading::Library::new(path)?;
-	    let load_module = lib.get::<unsafe extern "C" fn(*mut Bindings)>(b"load_module")?;
+	    let load_module = lib.get::<unsafe extern "C" fn(*mut Bindings)>(b"lispy_load_module")?;
 
 	    let sub_modules = HashMap::new();
 	    context.push_frame(None);
 
 	    let mut bindings = Bindings::new();
-	    
 	    load_module(&mut bindings);
 
 	    for (name, binding, shape) in bindings.bindings {
@@ -80,6 +79,35 @@ pub fn load_dynamic_libs(context: &mut Context, module_name: &str, load_path: &s
 	    context.add_module(module_name, module);
 	    context.add_dynamic_lib(lib);
 	}
+    }
+    Ok(())
+}
+
+pub fn load_dynamic_lib(context: &mut Context, module_name: &str, load_path: &str) -> Result<(), Box<dyn std::error::Error>> {
+    unsafe {
+	let path = load_path;
+	let lib = libloading::Library::new(path)?;
+	let load_module = lib.get::<unsafe extern "C" fn(*mut Bindings)>(b"lispy_load_module")?;
+
+	let sub_modules = HashMap::new();
+	context.push_frame(None);
+
+	let mut bindings = Bindings::new();
+	load_module(&mut bindings);
+
+	for (name, binding, shape) in bindings.bindings {
+	    let fun = lib.get::<unsafe extern "C" fn(*mut Context, *mut Value, usize, *mut Kwargs, *mut CFunctionOutput)>(name.as_bytes())?;
+
+	    let function = Function::CNative(*fun, shape);
+	    let function = Value::new_function(function, context);
+	    context.define(&binding, function);
+
+	}
+
+	let frame = context.pop_frame().ok_or("frame not found")?;
+	let module = Module::new_loaded(sub_modules, frame);
+	context.add_module(module_name, module);
+	context.add_dynamic_lib(lib);
     }
     Ok(())
 }

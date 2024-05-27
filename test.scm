@@ -97,6 +97,7 @@
         ["hello world" (display "match\n")])
 
 
-(ffi.hello-c)
+(import "gtk.so" 'ffi)
 
+(ffi.hello-gtk)
 (/ 1 0)

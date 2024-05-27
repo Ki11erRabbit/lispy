@@ -39,13 +39,20 @@ fn stdlib_open(context: &mut Context, args: Vec<Value>, keyword_args: Kwargs) ->
 	    'w' => write = true,
 	    'r' => {},
 	    'a' => append = true,
-	    '+' => {},
-	    'x' => create = true,
+	    'c' => {
+		create = true;
+		write = true;
+	    },
 	    _ => return Err(Box::new(Exception::new(&vec!["file","open"], "invalid mode", context))),
 	}
     }
 
-    let file = std::fs::OpenOptions::new().write(write).create(create).append(append).open(filename).expect("file open error");
+    let file = std::fs::OpenOptions::new()
+	.write(write)
+	.create(create)
+	.append(append)
+	.open(filename)
+	.map_err(|err| Box::new(Exception::new(&vec!["file","open"], &format!("{}", err), context)))?;
     let file = Box::new(Some(file));
     let file = Value::new_rust_value(file, context);
     Ok(file)
@@ -68,7 +75,7 @@ fn stdlib_read_string(context: &mut Context, args: Vec<Value>, keyword_args: Kwa
     let file = file.downcast_mut::<Option<std::fs::File>>().ok_or(Box::new(Exception::new(&vec!["file","read-string"], "file is not a file", context)))?;
     let file = file.as_mut().ok_or(Box::new(Exception::new(&vec!["file","read-string"], "file is closed", context)))?;
     let mut content = String::new();
-    file.read_to_string(&mut content).map_err(|_| Box::new(Exception::new(&vec!["file","read-string"], "file read error", context)))?;
+    file.read_to_string(&mut content).map_err(|err| Box::new(Exception::new(&vec!["file","read-string"], &format!("{}", err), context)))?;
     Ok(Value::new_string(&content, context))
 }
 
@@ -96,7 +103,7 @@ fn stdlib_write_string(context: &mut Context, args: Vec<Value>, keyword_args: Kw
     let file = file.get_rust_value_mut(context)?;
     let file = file.downcast_mut::<Option<std::fs::File>>().ok_or(Box::new(Exception::new(&vec!["file","write-string"], "file is not a file", context)))?;
     let file = file.as_mut().ok_or(Box::new(Exception::new(&vec!["file","write-string"], "file is closed", context)))?;
-    file.write_all(content.as_bytes()).map_err(|_| Box::new(Exception::new(&vec!["file","write-string"], "file write error", context)))?;
+    file.write_all(content.as_bytes()).map_err(|err| Box::new(Exception::new(&vec!["file","write-string"], &format!("{}", err), context)))?;
     Ok(Value::new_nil())
 }
 

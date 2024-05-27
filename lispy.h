@@ -1,3 +1,6 @@
+#ifndef LISPY_H
+#define LISPY_H
+
 #include <stddef.h>
 #include <stdint.h>
 
@@ -6,7 +9,7 @@ typedef void* context_t;
 typedef void* exception_t;
 typedef void* output_t;
 typedef void* fun_shape_t;
-typedef void* kwarg_t;
+typedef void* kwargs_t;
 typedef void* frame_t;
 typedef void* module_t;
 typedef void* bindings_t;
@@ -21,7 +24,7 @@ extern value_t value_new_char(uint32_t c);
 extern value_t value_new_pair(value_t car, value_t cdr, context_t ctx);
 extern value_t value_new_vector(value_t* vec, size_t len, context_t ctx);
 extern value_t value_new_c_value(void* value, void (*free)(void*), context_t ctx);
-extern value_t value_new_function(void (*fun)(context_t, value_t args, size_t arg_len, kwarg_t kwargs, output_t output), fun_shape_t shape, context_t ctx);
+extern value_t value_new_function(void (*fun)(context_t, value_t args, size_t arg_len, kwargs_t kwargs, output_t output), fun_shape_t shape, context_t ctx);
 extern value_t value_new_bytevector(uint8_t* vec, size_t len, context_t ctx);
 
 extern value_t value_get_string(value_t v, context_t ctx);
@@ -55,4 +58,6 @@ extern module_t module_new_loaded(frame_t frame);
 extern void bindings_add_binding(bindings_t bindings, char* name, size_t len, char* binding, size_t binding_len, fun_shape_t shape);
 
 // Implement this function in C
-void load_module(bindings_t bindings);
+void lispy_load_module(bindings_t bindings);
+
+#endif

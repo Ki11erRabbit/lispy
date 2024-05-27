@@ -268,8 +268,10 @@ fn walk_through_import(list: &Vec<Sexpr>, context: &mut Context, module_name: &V
 	[_, path, name] => {
 	    let path = walk_through(path, context, module_name)?.ok_or(Box::new(Exception::new(&vec!["import"], "not a string", context)))?;
 	    let path = path.get_string(context)?;
+
 	    let name = walk_through(name, context, module_name)?.ok_or(Box::new(Exception::new(&vec!["import"], "not a symbol", context)))?;
 	    let name = name.get_symbol(context)?;
+
 
 	    let module = Module::new(path, name.clone());
 	    let name = if name.len() > 1 {
@@ -277,6 +279,24 @@ fn walk_through_import(list: &Vec<Sexpr>, context: &mut Context, module_name: &V
 	    } else {
 		&name[0]
 	    };
+	    let file_path = std::path::Path::new(&path);
+	    let file_path = file_path.canonicalize().map_err(|err| Box::new(Exception::new(&vec!["import"], &format!("{}", err), context)))?;
+	    let canonical_path = file_path.clone();
+	    let canonical_path = canonical_path.to_str().unwrap();
+	    if !file_path.exists() {
+		return Err(Box::new(Exception::new(&vec!["import"], "file not found", context)));
+	    }
+	    if !file_path.is_file() {
+		return Err(Box::new(Exception::new(&vec!["import"], "not a file", context)));
+	    }
+	    let file_path = file_path.as_path();
+	    match file_path.extension().map(|ext| ext.to_str().unwrap()) {
+		Some("so") | Some("dll") | Some("dylib") => {
+		    crate::ffi::load_dynamic_lib(context, name, canonical_path).map_err(|err| Box::new(Exception::new(&vec!["import"], &format!("{}", err), context)))?;
+		    return Ok(None);
+		}
+		_ => {}
+	    }
 
 	    context.add_module(&name, module);
 	    Ok(None)
