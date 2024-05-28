@@ -173,10 +173,12 @@ impl Context {
     pub fn get(&self, name: &Vec<String>, module_name: &Vec<String>) -> Option<Value> {
         if name.len() == 1 {
             let value = self.get_from_frame(&name[0]);
-            return value.cloned();
+	    if value.is_some() {
+		return value.cloned();
+	    }
         }
 
-	if module_name.len() > 0 {
+	let out = if module_name.len() > 0 {
 	    let mut lookup = module_name.clone();
 	    lookup.append(&mut name.clone());
 	    let module_borrow = self.modules.borrow();
@@ -188,15 +190,24 @@ impl Context {
 		if let Some(module) = self.modules.borrow_mut().get_mut(&name[0]) {
 		    module.get(&name.as_slice()[1..], self)
 		} else {
-		    None
+		    let value = self.get_from_frame(&name[0]);
+		    return value.cloned();
 		}
 	    }
 	} else {
 	    if let Some(module) = self.modules.borrow_mut().get_mut(&name[0]) {
 		module.get(&name.as_slice()[1..], self)
 	    } else {
-		None
+		let value = self.get_from_frame(&name[0]);
+		return value.cloned();
 	    }
+	};
+
+	if out.is_none() {
+            let value = self.get_from_frame(&name[0]);
+            return value.cloned();
+	} else {
+	    out
 	}
     }
 

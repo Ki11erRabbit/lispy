@@ -710,7 +710,7 @@ fn stdlib_display(context: &mut Context, args: Vec<Value>, keyword_args: Kwargs)
 	if keyword_args.get("str").unwrap().is_string() {
 	    let string = keyword_args.get("str").unwrap().get_string(context)?;
 	    print!("{}", string);
-        std::io::stdout().flush().unwrap();
+            std::io::stdout().flush().unwrap();
 	} else {
 	    return Err(Box::new(Exception::new(&vec!["display"], "argument must be a string", context)));
 	}
@@ -718,7 +718,7 @@ fn stdlib_display(context: &mut Context, args: Vec<Value>, keyword_args: Kwargs)
 	if args[0].is_string() {
 	    let string = args[0].get_string(context)?;
 	    print!("{}", string);
-        std::io::stdout().flush().unwrap();
+            std::io::stdout().flush().unwrap();
 	} else {
 	    return Err(Box::new(Exception::new(&vec!["display"], "argument must be a string", context)));
 	}
@@ -1307,7 +1307,11 @@ fn stdlib_vector_set(context: &mut Context, args: Vec<Value>, keyword_args: Kwar
     };
 
     let vector = vector.get_vector_mut(context)?;
-    let index = index.get_integer(context)?.to_u64().unwrap();
+    let index = index.get_integer(context)?;
+    if *index < Integer::from(0) {
+	return Err(Box::new(Exception::new(&vec!["vector-set!"], "index must be non-negative", context)));
+    }
+    let index = index.to_u64().unwrap();
     vector[index as usize] = value.clone();
     Ok(Value::new_nil())
 }
@@ -1437,7 +1441,7 @@ fn stdlib_vector_length(context: &mut Context, args: Vec<Value>, keyword_args: K
 }
 
 fn stdlib_list_length_shape() -> FunctionShape {
-	FunctionShape::new(vec!["list".to_string()])
+    FunctionShape::new(vec!["list".to_string()])
 }
 
 fn stdlib_list_length(context: &mut Context, args: Vec<Value>, keyword_args: Kwargs) -> HelperResult<Value> {
@@ -1981,6 +1985,127 @@ fn stdlib_filter_string(context: &mut Context, args: Vec<Value>, keyword_args: K
     }
 }
 
+fn stdlib_for_each_list_shape() -> FunctionShape {
+    FunctionShape::new(vec!["function".to_string(), "list".to_string()])
+}
+
+fn stdlib_for_each_list(context: &mut Context, args: Vec<Value>, keyword_args: Kwargs) -> HelperResult<Value> {
+    let (function, list) = if args.len() == 2 {
+	(args[0].clone(), args[1].clone())
+    } else if args.len() == 1 {
+	let function = args[0].clone();
+	let list = keyword_args.get("list").ok_or(Box::new(Exception::new(&vec!["for-each-list"], "missing argument list", context)))?.clone();
+	(function, list)
+    } else {
+	let function = keyword_args.get("function").ok_or(Box::new(Exception::new(&vec!["for-each-list"], "missing argument function", context)))?.clone();
+	let list = keyword_args.get("list").ok_or(Box::new(Exception::new(&vec!["for-each-list"], "missing argument list", context)))?.clone();
+	(function, list)
+    };
+
+    if function.is_function() && list.is_pair() {
+	let function = function.get_function(context)?;
+	let mut current = list.get_pair(context)?;
+	while !current.1.is_nil() {
+	    function.call_raw(vec![current.0.clone()], Kwargs::new(), context, &vec![])?;
+	    current = current.1.get_pair(context)?;
+	}
+	function.call_raw(vec![current.0.clone()], Kwargs::new(), context, &vec![])?;
+	return Ok(Value::new_nil());
+    } else {
+	return Err(Box::new(Exception::new(&vec!["for-each-list"], "first argument must be a function and second argument must be a list", context)));
+    }
+}
+
+fn stdlib_for_each_vector_shape() -> FunctionShape {
+    FunctionShape::new(vec!["function".to_string(), "vector".to_string()])
+}
+
+fn stdlib_for_each_vector(context: &mut Context, args: Vec<Value>, keyword_args: Kwargs) -> HelperResult<Value> {
+    let (function, vector) = if args.len() == 2 {
+	(args[0].clone(), args[1].clone())
+    } else if args.len() == 1 {
+	let function = args[0].clone();
+	let vector = keyword_args.get("vector").ok_or(Box::new(Exception::new(&vec!["for-each-vector"], "missing argument vector", context)))?.clone();
+	(function, vector)
+    } else {
+	let function = keyword_args.get("function").ok_or(Box::new(Exception::new(&vec!["for-each-vector"], "missing argument function", context)))?.clone();
+	let vector = keyword_args.get("vector").ok_or(Box::new(Exception::new(&vec!["for-each-vector"], "missing argument vector", context)))?.clone();
+	(function, vector)
+    };
+
+    if function.is_function() && vector.is_vector() {
+	let function = function.get_function(context)?;
+	let vector = vector.get_vector(context)?;
+	for v in vector.iter() {
+	    function.call_raw(vec![v.clone()], Kwargs::new(), context, &vec![])?;
+	}
+	return Ok(Value::new_nil());
+    } else {
+	return Err(Box::new(Exception::new(&vec!["for-each-vector"], "first argument must be a function and second argument must be a vector", context)));
+    }
+}
+
+fn stdlib_for_each_string_shape() -> FunctionShape {
+    FunctionShape::new(vec!["function".to_string(), "string".to_string()])
+}
+
+fn stdlib_for_each_string(context: &mut Context, args: Vec<Value>, keyword_args: Kwargs) -> HelperResult<Value> {
+    let (function, string) = if args.len() == 2 {
+	(args[0].clone(), args[1].clone())
+    } else if args.len() == 1 {
+	let function = args[0].clone();
+	let string = keyword_args.get("string").ok_or(Box::new(Exception::new(&vec!["for-each-string"], "missing argument string", context)))?.clone();
+	(function, string)
+    } else {
+	let function = keyword_args.get("function").ok_or(Box::new(Exception::new(&vec!["for-each-string"], "missing argument function", context)))?.clone();
+	let string = keyword_args.get("string").ok_or(Box::new(Exception::new(&vec!["for-each-string"], "missing argument string", context)))?.clone();
+	(function, string)
+    };
+
+    if function.is_function() && string.is_string() {
+	let function = function.get_function(context)?;
+	let string = string.get_string(context)?;
+	for c in string.chars() {
+	    function.call_raw(vec![Value::new_char(c)], Kwargs::new(), context, &vec![])?;
+	}
+	return Ok(Value::new_nil());
+    } else {
+	return Err(Box::new(Exception::new(&vec!["for-each-string"], "first argument must be a function and second argument must be a string", context)));
+    }
+}
+
+fn stdlib_vector_shape() -> FunctionShape {
+    FunctionShape::new(vec!["size".to_string(), "value".to_string()])
+}
+
+fn stdlib_vector(context: &mut Context, args: Vec<Value>, keyword_args: Kwargs) -> HelperResult<Value> {
+    let (size, value) = if args.len() == 2 {
+	(args[0].clone(), args[1].clone())
+    } else if args.len() == 1 {
+	let size = args[0].clone();
+	let value = keyword_args.get("value").ok_or(Box::new(Exception::new(&vec!["vector"], "missing argument value", context)))?.clone();
+	(size, value)
+    } else {
+	let size = keyword_args.get("size").ok_or(Box::new(Exception::new(&vec!["vector"], "missing argument size", context)))?.clone();
+	let value = keyword_args.get("value").ok_or(Box::new(Exception::new(&vec!["vector"], "missing argument value", context)))?.clone();
+	(size, value)
+    };
+
+    if size.is_integer() {
+	let size = size.get_integer(context)?;
+	let value = value.clone();
+	let mut out = Vec::new();
+	let mut start = Integer::from(0);
+	while start < *size {
+	    out.push(value.clone());
+	    start += 1;
+	}
+	return Ok(Value::new_vector(out, context));
+    } else {
+	return Err(Box::new(Exception::new(&vec!["vector"], "first argument must be an integer", context)));
+    }
+}
+
 
 fn stdlib_sleep_shape() -> FunctionShape {
     FunctionShape::new(vec!["seconds".to_string()])
@@ -2050,6 +2175,96 @@ fn stdlib_is_bound(context: &mut Context, args: Vec<Value>, keyword_args: Kwargs
 	} else {
 	    return Err(Box::new(Exception::new(&vec!["bound?"], "argument must be a symbol", context)));
 	}
+    }
+}
+
+fn stdlib_debug_display_shape() -> FunctionShape {
+    FunctionShape::new(vec!["value".to_string()])
+}
+
+fn stdlib_debug_display(context: &mut Context, args: Vec<Value>, keyword_args: Kwargs) -> HelperResult<Value> {
+    if args.len() == 1 {
+	println!("{:?}", args[0]);
+	return Ok(Value::new_nil());
+    } else {
+	println!("{:?}", keyword_args.get("value").unwrap());
+	return Ok(Value::new_nil());
+    }
+}
+
+fn stdlib_while_shape() -> FunctionShape {
+    FunctionShape::new(vec!["condition".to_string(), "body".to_string()])
+}
+
+fn stdlib_while(context: &mut Context, args: Vec<Value>, keyword_args: Kwargs) -> HelperResult<Value> {
+    let (condition, body) = if args.len() == 2 {
+	(args[0].clone(), args[1].clone())
+    } else if args.len() == 1 {
+	let condition = args[0].clone();
+	let body = keyword_args.get("body").ok_or(Box::new(Exception::new(&vec!["while"], "missing argument body", context)))?.clone();
+	(condition, body)
+    } else {
+	let condition = keyword_args.get("condition").ok_or(Box::new(Exception::new(&vec!["while"], "missing argument condition", context)))?.clone();
+	let body = keyword_args.get("body").ok_or(Box::new(Exception::new(&vec!["while"], "missing argument body", context)))?.clone();
+	(condition, body)
+    };
+
+    if condition.is_function() && body.is_function() {
+	let condition = condition.get_function(context)?;
+	let body = body.get_function(context)?;
+	loop {
+	    match condition.call_raw(vec![], Kwargs::new(), context, &vec![]) {
+		Ok(Some(value)) => {
+		    if value.is_boolean() {
+			if !value.get_boolean(context)? {
+			    break;
+			}
+		    } else {
+			return Err(Box::new(Exception::new(&vec!["while"], "condition must return a boolean", context)));
+		    }
+		},
+		Ok(None) => return Err(Box::new(Exception::new(&vec!["while"], "condition must return a boolean", context))),
+		Err(e) => return Err(e),
+	    }
+	    body.call_raw(vec![], Kwargs::new(), context, &vec![])?;
+	}
+	return Ok(Value::new_nil());
+    } else {
+	return Err(Box::new(Exception::new(&vec!["while"], "arguments must be functions", context)));
+    }
+}
+
+fn stdlib_for_range_shape() -> FunctionShape {
+    FunctionShape::new(vec!["start".to_string(), "end".to_string(), "body".to_string()])
+}
+
+fn stdlib_for_range(context: &mut Context, args: Vec<Value>, keyword_args: Kwargs) -> HelperResult<Value> {
+    let (start, end, body) = if args.len() == 3 {
+	(args[0].clone(), args[1].clone(), args[2].clone())
+    } else if args.len() == 2 {
+	let start = args[0].clone();
+	let end = args[1].clone();
+	let body = keyword_args.get("body").ok_or(Box::new(Exception::new(&vec!["for-range"], "missing argument body", context)))?.clone();
+	(start, end, body)
+    } else {
+	let start = keyword_args.get("start").ok_or(Box::new(Exception::new(&vec!["for-range"], "missing argument start", context)))?.clone();
+	let end = keyword_args.get("end").ok_or(Box::new(Exception::new(&vec!["for-range"], "missing argument end", context)))?.clone();
+	let body = keyword_args.get("body").ok_or(Box::new(Exception::new(&vec!["for-range"], "missing argument body", context)))?.clone();
+	(start, end, body)
+    };
+
+    if start.is_integer() && end.is_integer() && body.is_function() {
+	let start = start.get_integer(context)?;
+	let end = end.get_integer(context)?;
+	let body = body.get_function(context)?;
+	let mut start = start.clone();
+	while start < *end {
+	    body.call_raw(vec![Value::new_integer_from_integer(start.clone())], Kwargs::new(), context, &vec![])?;
+	    start += 1;
+	}
+	return Ok(Value::new_nil());
+    } else {
+	return Err(Box::new(Exception::new(&vec!["for-range"], "first two arguments must be integers and the last argument must be a function", context)));
     }
 }
 
@@ -2125,6 +2340,13 @@ pub fn get_stdlib(context: &mut Context) -> ContextFrame {
     bindings.insert("filter-list".to_string(), Value::new_function(Function::Native(stdlib_filter_list, stdlib_filter_list_shape()), context));
     bindings.insert("filter-vector".to_string(), Value::new_function(Function::Native(stdlib_filter_vector, stdlib_filter_vector_shape()), context));
     bindings.insert("filter-string".to_string(), Value::new_function(Function::Native(stdlib_filter_string, stdlib_filter_string_shape()), context));
+    bindings.insert("for-each-list".to_string(), Value::new_function(Function::Native(stdlib_for_each_list, stdlib_for_each_list_shape()), context));
+    bindings.insert("for-each-vector".to_string(), Value::new_function(Function::Native(stdlib_for_each_vector, stdlib_for_each_vector_shape()), context));
+    bindings.insert("for-each-string".to_string(), Value::new_function(Function::Native(stdlib_for_each_string, stdlib_for_each_string_shape()), context));
+    bindings.insert("while".to_string(), Value::new_function(Function::Native(stdlib_while, stdlib_while_shape()), context));
+    bindings.insert("for-range".to_string(), Value::new_function(Function::Native(stdlib_for_range, stdlib_for_range_shape()), context));
+    bindings.insert("vector".to_string(), Value::new_function(Function::Native(stdlib_vector, stdlib_vector_shape()), context));
+    bindings.insert("debug-display".to_string(), Value::new_function(Function::Native(stdlib_debug_display, stdlib_debug_display_shape()), context));
     
     
 

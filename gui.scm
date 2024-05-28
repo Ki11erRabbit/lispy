@@ -14,7 +14,7 @@
 (define component-list '())
 
 
-(define (run renderer event)
+(define (run renderer message_queue)
     (begin
     (for-each
       (lambda (component)

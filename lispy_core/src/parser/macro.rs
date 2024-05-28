@@ -299,7 +299,7 @@ fn expand_list<'a>(bindings: &mut MacroContext, list: &'a Vec<Sexpr>, macros: &m
 	    },
 	    "define-syntax-rule" => expand_define_syntax_rule(bindings, list, macros),
 	    "let" => {
-		//println!("{:?}", list);
+		//println!("{:?}\n", list);
 		match list.as_slice() {
 		    [_, Sexpr::List(let_bindings), body] => {
 			bindings.push();

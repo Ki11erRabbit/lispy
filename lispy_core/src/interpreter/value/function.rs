@@ -150,8 +150,12 @@ impl Function {
 		for (arg, value) in keyword_args.iter() {
 		    context.define(arg, value.clone());
 		}
-		let new_module_name = name.clone().into_iter().rev().skip(1).rev().collect();
-		let value = interpreter::walkthrough::walk_through(&body, context, &new_module_name);
+		let value = if name.len() == 1 {
+		    interpreter::walkthrough::walk_through(&body, context, module_name)
+		} else {
+		    let new_module_name = name.clone().into_iter().rev().skip(1).rev().collect();
+		    interpreter::walkthrough::walk_through(&body, context, &new_module_name)
+		};
 		context.pop_frame();
 		value
 	    },
@@ -234,9 +238,13 @@ impl Function {
 		    context.define(arg, value.clone());
 		}
 		
+		let value = if name.len() == 1 {
+		    interpreter::bytecode::run(&bytecode.as_slice(), context, module_name)
+		} else {
+		    let new_module_name = name.clone().into_iter().rev().skip(1).rev().collect();
+		    interpreter::bytecode::run(&bytecode.as_slice(), context, &new_module_name)
+		};
         
-		let new_module_name = name.clone().into_iter().rev().skip(1).rev().collect();
-		let value = interpreter::bytecode::run(&bytecode.as_slice(), context, &new_module_name);
 		context.pop_frame();
 		value
 	    },
@@ -294,7 +302,7 @@ impl Function {
 	}
     }
 
-    pub fn call_from_bytecode(&self, name: &Vec<String>, args: Vec<Value>, kargs: Kwargs, context: &mut Context, _: &Vec<String>) -> InterpreterResult {
+    pub fn call_from_bytecode(&self, name: &Vec<String>, args: Vec<Value>, kargs: Kwargs, context: &mut Context, module_name: &Vec<String>) -> InterpreterResult {
 	match self {
 	    Function::Tree(fun_args, body, frame, shape) => {
 		context.push_frame(Some(frame.clone()));
@@ -308,8 +316,12 @@ impl Function {
 
 		shape.check(&name, &args, &kargs, context)?;
         
-		let new_module_name = name.clone().into_iter().rev().skip(1).rev().collect();
-		let value = interpreter::walkthrough::walk_through(&body, context, &new_module_name);
+		let value = if name.len() == 1 {
+		    interpreter::walkthrough::walk_through(&body, context, module_name)
+		} else {
+		    let new_module_name = name.clone().into_iter().rev().skip(1).rev().collect();
+		    interpreter::walkthrough::walk_through(&body, context, &new_module_name)
+		};
 		context.pop_frame();
 		value
 	    },
@@ -329,8 +341,12 @@ impl Function {
 		    context.define(arg, value.clone());
 		}
 
-		let new_module_name = name.clone().into_iter().rev().skip(1).rev().collect();
-		let value = interpreter::bytecode::run(&bytecode.as_slice(), context, &new_module_name);
+		let value = if name.len() == 1 {
+		    interpreter::bytecode::run(&bytecode.as_slice(), context, module_name)
+		} else {
+		    let new_module_name = name.clone().into_iter().rev().skip(1).rev().collect();
+		    interpreter::bytecode::run(&bytecode.as_slice(), context, &new_module_name)
+		};
 		context.pop_frame();
 		value
 	    },

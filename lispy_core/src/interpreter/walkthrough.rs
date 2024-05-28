@@ -127,6 +127,7 @@ fn walk_through_list(list: &Vec<Sexpr>, context: &mut Context, module_name: &Vec
 	    "struct" => walk_through_struct(list, context, module_name),
 	    "enum" => walk_through_enum(list, context, module_name),
 	    "match" => walk_through_type_case(list, context, module_name),
+	    "while" => walk_through_while(list, context, module_name),
             _ => walk_through_call(list, context, module_name),
         }
     } else {
@@ -653,7 +654,31 @@ fn walk_through_type_case(list: &Vec<Sexpr>, context: &mut Context, module_name:
 	}
 	_ => Err(Box::new(Exception::new(&vec!["match"], "unusual syntax 9", context))),
     }
-    
+}
+
+fn walk_through_while(list: &Vec<Sexpr>, context: &mut Context, module_name: &Vec<String>) -> InterpreterResult {
+    match list.as_slice() {
+	[_, condition, body] => {
+	    let mut value = Some(Value::new_nil());
+	    loop {
+		let condition = walk_through(condition, context, module_name)?;
+		match condition {
+		    Some(v) => {
+			if v.get_boolean(context)? {
+			    value = walk_through(body, context, module_name)?;
+			} else {
+			    break;
+			}
+		    }
+		    None => {
+			return Err(Box::new(Exception::new(&vec!["while"], "expression didn't result in a value", context)));
+		    }
+		}
+	    };
+	Ok(value)
+    },
+    _ => Err(Box::new(Exception::new(&vec!["while"], "unusual syntax", context))),
+    }
 }
 	
 
@@ -665,7 +690,6 @@ fn walk_through_call(list: &Vec<Sexpr>, context: &mut Context, module_name: &Vec
             },
             None => return Err(Box::new(Exception::new(&name, "not bound", context)))
         };
-
         function.call(&name, &list.as_slice()[1..], context, module_name)
 
     } else {

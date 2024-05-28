@@ -65,7 +65,7 @@ impl Enum {
 	    let mut constructor_bytecode = member_names.iter().map(|s| vec![
 		Bytecode::new(RawBytecode::PushSymbol(s.clone()), 0, 0),
 		Bytecode::new(RawBytecode::Load, 0, 0),
-	    ]).flatten().collect::<Vec<Bytecode>>();
+	    ]).rev().flatten().collect::<Vec<Bytecode>>();
 	    constructor_bytecode.push(Bytecode::new(RawBytecode::PushSymbol(variant_name.clone()), 0, 0));
 	    constructor_bytecode.push(Bytecode::new(RawBytecode::PushSymbol(type_name.clone()), 0, 0));
 	    constructor_bytecode.push(Bytecode::new(RawBytecode::MakeEnum(member_names.len()), 0, 0));
