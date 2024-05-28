@@ -16,6 +16,7 @@
 (define send-channel (car channels))
 (define recv-channel (cdr channels))
 
+; A component contains it's raw datatype, an init function, an update function, and a view function
 (struct component [raw init-root init update view])
 
 ; Creates the root component
@@ -34,7 +35,16 @@
 (define (view component widgets sender)
   ...)
 
+; An application contains the the root component which should be the window
+; run should be a function that takes a renderer and the application itself
+; handle-message should be a function that takes a reciever channel and route messages to the correct component
 (struct application [run root-component handle-message])
+
+(define (run renderer app)
+  ...)
+
+(define (handle-message reciever)
+  ...)
 
 (define (run-application app)
   (match app)
