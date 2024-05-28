@@ -50,6 +50,10 @@
 
 ; Built in components
 (define window nil)
+(define window-set-title nil)
+(define window-set-size nil)
+(define window-add-component nil)
+(define window-show nil)
 (define virtical-box nil)
 (define virtical-box-add nil)
 (define horizontal-box nil)
