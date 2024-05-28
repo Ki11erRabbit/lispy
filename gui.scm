@@ -1,31 +1,8 @@
 
 
+
+; A component contains it's raw datatype, an update function, and a view function
 (struct component [raw update view])
-(struct message [who data])
-
-; returns a message if needed
-(define (update component raw event)
-  ...)
-
-; return data to render
-(define (view component raw)
-  ...)
-
-(define component-list (vector-list-empty))
-(define channels (sync.mpsc-channel))
-(define send-channel (car channels))
-(define recv-channel (cdr channels))
-
-; A component contains it's raw datatype, an init function, an update function, and a view function
-(struct component [raw init-root init update view])
-
-; Creates the root component
-(define (init-root)
-  ...)
-
-; Intializes the component
-(define (init start root sender)
-  ...)
 
 ; Updates the component on a message event
 (define (update component message sender)
@@ -40,41 +17,60 @@
 ; handle-message should be a function that takes a reciever channel and route messages to the correct component
 (struct application [run root-component handle-message])
 
-(define (run renderer app)
+
+; This should caputure the receiving end of the channel and route messages to the correct component
+; Maybe the component should also be capured to make updating easier
+(define (handle-message)
   ...)
 
-(define (handle-message reciever)
-  ...)
+(define (application-new root-component handle-message)
+  (application default-runner root-component handle-message))
+
+(define (default-runner renderer app)
+  (while #t 
+       (match app
+	 [(application run root-component handle-message) (begin
+							    (hande-message)
+							    (match root-component
+							      [(component raw update view) (begin
+											     (renderer (view root-component)))]
+							      [else (error 'run "Invalid root component")]))]
+	 [else (error 'run "Invalid application")])))
+
+(define renderer nil)
+
 
 (define (run-application app)
-  (match app)
-    [(application run root-component handle-message) 
-     ]
-    [else (error 'run-application "Invalid application")])
-
-(define (run renderer)
-  (let [(message-queue (deque-empy))
-    (components (vector-list-empty))
-    (all-components (vector-list-empty))]
-        (while #t (let ([value (sync.mpsc-try-receive recv-channel)])
-          (begin
-            (match value
-                   [(message who data) (deque-push-back message-queue value)]
-                   [else nil])
-            (vector-list-for-each
-              all-component-list
-              (lambda (component)
-                (match component
-                       [(component raw update view) (update component raw event)]
-                       [else (error 'gui.run "Invalid component")])))
-            (vector-list-for-each
-              component-list
-              (lambda (component)
-                (match component
-                       [(component raw update view) (view component raw)]
-                       [else (error 'gui.run "Invalid component")])))
-              )))))
+  (match app
+    [(application run root-component handle-message) (run renderer app)]
+    [else (error 'run-application "Invalid application")]))
 
 
-(define (init path)
-  (import path 'core))
+
+
+; Built in components
+(define window nil)
+(define virtical-box nil)
+(define virtical-box-add nil)
+(define horizontal-box nil)
+(define horizontal-box-add nil)
+(define button nil)
+(define button-on-click nil)
+(define label nil)
+(define label-set-text nil)
+
+
+
+(define (init-gui path)
+  (begin
+    (import path 'core)
+    (set! renderer core.renderer)
+    (if (bound? 'core.runner)
+	(set! default-runner core.runner)
+	nil)
+    (set! virtical-box core.virtical-box)
+    (set! horizontal-box core.horizontal-box)
+    (set! button core.button)
+    (set! label core.label)
+    nil
+    ))
