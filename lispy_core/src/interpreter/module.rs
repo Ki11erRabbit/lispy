@@ -6,7 +6,7 @@ use crate::interpreter::value::Value;
 use super::context::{ContextFrame, Context};
 
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 enum RawModule {
     File(String, Vec<String>),
     Loaded {
@@ -15,7 +15,7 @@ enum RawModule {
     },
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct Module {
     raw_module: RefCell<RawModule>,
 }
@@ -123,6 +123,36 @@ impl Module {
 		}
 		frame.unmark();
 	    }
+	}
+    }
+
+    pub fn get_submodule(&self, path: &[String], context: &Context) -> Option<Module> {
+	self.load(context);
+	match &*self.raw_module.borrow() {
+	    RawModule::File(_, _) => unreachable!(),
+	    RawModule::Loaded { submodules, .. } => {
+		if path.is_empty() {
+		    return Some(self.clone());
+		} else if path.len() == 1 {
+		    match submodules.get(&path[0]).cloned() {
+			None => None,
+			Some(module) => module.get_submodule(&[], context),
+		    }
+		} else {
+		    if let Some(module) = submodules.get(&path[0]) {
+			module.get_submodule(&path[1..], context)
+		    } else {
+			None
+		    }
+		}
+	    }
+	}
+    }
+
+    pub fn into_loaded(self) -> Option<(HashMap<String, Module>, ContextFrame)> {
+	match self.raw_module.into_inner() {
+	    RawModule::File(_, _) => None,
+	    RawModule::Loaded { submodules, frame } => Some(((*submodules).clone(), (*frame).clone())),
 	}
     }
 		    

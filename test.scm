@@ -102,23 +102,24 @@
 ;(ffi.hello-gtk)
 
 (import "data.scm" 'data)
+(import-from 'data.deque)
 
-(define d (data.deque-empty))
+(define d (deque-empty))
 
 (display "pushing\n")
-(data.deque-push-back d 1)
+(deque-push-back d 1)
 ;(data.deque-for-each d (lambda (x) (begin (debug-display x) (display " "))))
 (display "pushing\n")
-(data.deque-push-back d 2)
+(deque-push-back d 2)
 ;(data.deque-for-each d (lambda (x) (begin (debug-display x) (display " "))))
 (display "pushing\n")
-(data.deque-push-back d 3)
+(deque-push-back d 3)
 
-(if (data.deque-empty? d)
+(if (deque-empty? d)
     (display "empty\n")
     (display "not empty\n"))
 
-(data.deque-for-each d (lambda (x) (begin (display (integer->string x)) (display " "))))
+(deque-for-each d (lambda (x) (begin (display (integer->string x)) (display " "))))
 
 
 (/ 1 0)

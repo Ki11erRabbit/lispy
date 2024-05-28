@@ -10,10 +10,10 @@ use std::sync::mpsc::Sender;
 use std::cell::RefCell;
 
 
+use super::{HelperResult, Exception};
 use super::value::GcValue;
 
-#[repr(C)]
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct ContextFrame {
     pub bindings: HashMap<String, Value>,
 }
@@ -31,7 +31,7 @@ impl ContextFrame {
     }
 
     pub fn get(&self, name: &str) -> Option<&Value> {
-	    let value = self.bindings.get(name);// this blocks the thread
+	let value = self.bindings.get(name);
         value
     }
 
@@ -52,9 +52,14 @@ impl ContextFrame {
 	    value.protect();
 	}
     }
+
+    pub fn merge_frame(&mut self, frame: ContextFrame) {
+	for (name, value) in frame.bindings {
+	    self.bindings.insert(name, value);
+	}
+    }
 }
 
-#[repr(C)]
 pub struct Context {
     gc_lock: Arc<RwLock<()>>,
     sender: Sender<Gc<GcValue>>,
@@ -337,6 +342,11 @@ impl Context {
 	    let symbol = Value::new_symbol(name.clone(), self);
 	    type_table.push(symbol.clone());
 	    self.symbols_to_table.write().unwrap().insert(name.clone(), index);
+	    let mut name = &name.as_slice()[1..];
+	    while name.len() > 0 {
+		self.symbols_to_table.write().unwrap().insert(name.to_vec(), index);
+		name = &name[1..];
+	    }
 	    index
 	}
     }
@@ -352,6 +362,11 @@ impl Context {
 	    type_table.push(symbol.clone());
 	    self.symbols_to_table.write().unwrap().insert(name.clone(), index);
 	    self.enum_idicies.write().unwrap().insert(index);
+	    let mut name = &name.as_slice()[1..];
+	    while name.len() > 0 {
+		self.symbols_to_table.write().unwrap().insert(name.to_vec(), index);
+		name = &name[1..];
+	    }
 	    index
 	}
     }
@@ -373,6 +388,42 @@ impl Context {
     pub fn add_dynamic_lib(&self, lib: libloading::Library) {
 	let mut dynamic_libraries = self.dynamic_libraries.write().unwrap();
 	dynamic_libraries.push(lib);
+    }
+
+    pub fn copy_module_into_current(&self, module_path: &Vec<String>, name: &String) -> HelperResult<()> {
+	match self.modules.borrow().get(&module_path[0]) {
+	    None => Err(Box::new(Exception::new(&vec!["import-from"], "module not found", self))),
+	    Some(module) => {
+		let module = module
+		    .get_submodule(&module_path.as_slice()[1..], self)
+		    .ok_or(Box::new(Exception::new(&vec!["import-from"], "module path not found", self)))?;
+		self.modules.borrow_mut().insert(name.clone(), module);
+		Ok(())
+	    }
+	}
+    }
+
+    pub fn load_module_into_current(&mut self, module_path: &Vec<String>) -> HelperResult<()> {
+	let module = match self.modules.borrow().get(&module_path[0]) {
+	    None => return Err(Box::new(Exception::new(&vec!["import-from"], "module not found", self))),
+	    Some(module) => {
+		let module = module
+		    .get_submodule(&module_path.as_slice()[1..], self)
+		    .ok_or(Box::new(Exception::new(&vec!["import-from"], "module path not found", self)))?;
+		module
+	    }
+	};
+	
+	let Some((submodules, frame)) = module.into_loaded() else {
+	    return Err(Box::new(Exception::new(&vec!["import-from"], "module path not found", self)));
+	};
+
+	for (name, module) in submodules {
+	    self.add_module(&name, module);
+	}
+
+	self.frames.last_mut().unwrap().merge_frame(frame);
+	Ok(())
     }
 	
 }

@@ -111,3 +111,26 @@ pub fn load_dynamic_lib(context: &mut Context, module_name: &str, load_path: &st
     }
     Ok(())
 }
+
+pub fn load_dynamic_lib_into(context: &mut Context, load_path: &str) -> Result<(), Box<dyn std::error::Error>> {
+    unsafe {
+	let path = load_path;
+	let lib = libloading::Library::new(path)?;
+	let load_module = lib.get::<unsafe extern "C" fn(*mut Bindings)>(b"lispy_load_module")?;
+
+	let mut bindings = Bindings::new();
+	load_module(&mut bindings);
+
+	for (name, binding, shape) in bindings.bindings {
+	    let fun = lib.get::<unsafe extern "C" fn(*mut Context, *mut Value, usize, *mut Kwargs, *mut CFunctionOutput)>(name.as_bytes())?;
+
+	    let function = Function::CNative(*fun, shape);
+	    let function = Value::new_function(function, context);
+	    context.define(&binding, function);
+
+	}
+
+	context.add_dynamic_lib(lib);
+    }
+    Ok(())
+}

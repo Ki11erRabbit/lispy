@@ -119,6 +119,7 @@ fn walk_through_list(list: &Vec<Sexpr>, context: &mut Context, module_name: &Vec
             "let" => walk_through_let(list, context, module_name),
             "begin" => walk_through_begin(list, context, module_name),
             "import" => walk_through_import(list, context, module_name),
+            "import-from" => walk_through_import_from(list, context, module_name),
             "module" => walk_through_module(list, context, module_name),
             "try" => walk_through_try(list, context, module_name),
             "error" => walk_through_error(list, context, module_name),
@@ -302,9 +303,73 @@ fn walk_through_import(list: &Vec<Sexpr>, context: &mut Context, module_name: &V
 	    context.add_module(&name, module);
 	    Ok(None)
 	}
+	[_, path] => {
+	    let path = walk_through(path, context, module_name)?.ok_or(Box::new(Exception::new(&vec!["import"], "not a string", context)))?;
+	    let path = path.get_string(context)?;
+
+	    let file_path = std::path::Path::new(&path);
+	    let file_path = file_path.canonicalize().map_err(|err| Box::new(Exception::new(&vec!["import"], &format!("{}", err), context)))?;
+	    let canonical_path = file_path.clone();
+	    let canonical_path = canonical_path.to_str().unwrap();
+	    if !file_path.exists() {
+		return Err(Box::new(Exception::new(&vec!["import"], "file not found", context)));
+	    }
+	    if !file_path.is_file() {
+		return Err(Box::new(Exception::new(&vec!["import"], "not a file", context)));
+	    }
+	    let file_path = file_path.as_path();
+	    match file_path.extension().map(|ext| ext.to_str().unwrap()) {
+		Some("so") | Some("dll") | Some("dylib") => {
+		    crate::ffi::load_dynamic_lib_into(context, canonical_path).map_err(|err| Box::new(Exception::new(&vec!["import"], &format!("{}", err), context)))?;
+		    return Ok(None);
+		}
+		_ => {}
+	    }
+
+	    let file = std::fs::read_to_string(file_path).map_err(|err| Box::new(Exception::new(&vec!["import"], &format!("{}", err), context)))?;
+	    let file = crate::parser::parse(&file, &mut context.get_macros()).map_err(|err| Box::new(Exception::new(&vec!["import"], &format!("{}", err), context)))?;
+	    run(file, context, module_name).map_err(|err| Box::new(Exception::new(&vec!["import"], &format!("{}", err), context)))?;
+	    
+	    Ok(None)
+	}
 	_ => Err(Box::new(Exception::new(&vec!["import"], "unusual syntax", context)))
     }
 }
+
+fn walk_through_import_from(list: &Vec<Sexpr>, context: &mut Context, module_name: &Vec<String>) -> InterpreterResult {
+    match list.as_slice() {
+	[_, module_path, name] => {
+
+	    let module_path = walk_through(module_path, context, module_name)?.ok_or(Box::new(Exception::new(&vec!["import-from"], "not a symbol", context)))?;
+	    let module_path = module_path.get_symbol(context)?;
+
+	    let name = walk_through(name, context, module_name)?.ok_or(Box::new(Exception::new(&vec!["import-from"], "not a symbol", context)))?;
+	    let name = name.get_symbol(context)?;
+
+
+	    let name = if name.len() > 1 {
+		return Err(Box::new(Exception::new(&vec!["import-from"], "symbol must be singular", context)));
+	    } else {
+		&name[0]
+	    };
+
+	    context.copy_module_into_current(&module_path, name)?;
+	    
+	    Ok(None)
+	}
+	[_, path] => {
+	    let path = walk_through(path, context, module_name)?.ok_or(Box::new(Exception::new(&vec!["import-from"], "not a string", context)))?;
+	    let path = path.get_symbol(context)?;
+
+	    
+	    context.load_module_into_current(&path)?;
+	    
+	    Ok(None)
+	}
+	_ => Err(Box::new(Exception::new(&vec!["import"], "unusual syntax", context)))
+    }
+}
+
 
 fn walk_through_module(list: &Vec<Sexpr>, context: &mut Context, module_name: &Vec<String>) -> InterpreterResult {
     match list.as_slice() {
