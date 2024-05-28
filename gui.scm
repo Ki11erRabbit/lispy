@@ -16,9 +16,31 @@
 (define send-channel (car channels))
 (define recv-channel (cdr channels))
 
+(struct component [raw init-root init update view])
 
+; Creates the root component
+(define (init-root)
+  ...)
 
-(struct application [data handle-message])
+; Intializes the component
+(define (init start root sender)
+  ...)
+
+; Updates the component on a message event
+(define (update component message sender)
+  ...)
+
+; Modifies widgets to b the data to render
+(define (view component widgets sender)
+  ...)
+
+(struct application [run root-component handle-message])
+
+(define (run-application app)
+  (match app)
+    [(application run root-component handle-message) 
+     ]
+    [else (error 'run-application "Invalid application")])
 
 (define (run renderer)
   (let [(message-queue (deque-empy))
