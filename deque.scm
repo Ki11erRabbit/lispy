@@ -117,7 +117,7 @@
 (define (deque-capacity d)
   (vector-length (deque-vec d)))
 
-(define (deque-clear! d)
+(define (deque-clear d)
   (begin
     (deque-size-set! d 0)
     (deque-front-set! d 0)
