@@ -663,6 +663,11 @@ impl Value {
     }
 
     #[no_mangle]
+    pub extern "C" fn value_new_integer_from_ssize_t(value: isize) -> *mut Self {
+	Box::into_raw(Box::new(Value::new_integer_from_integer(Integer::from(value))))
+    }
+ 
+    #[no_mangle]
     pub extern "C" fn value_new_float(value: f64) -> *mut Self {
 	Box::into_raw(Box::new(Value::new_float(value)))
     }

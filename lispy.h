@@ -17,6 +17,7 @@ typedef void* bindings_t;
 extern value_t value_new_nil(void);
 extern value_t value_new_string(const char* s, size_t len, context_t ctx);
 extern value_t value_new_integer(const char*, size_t len);
+extern value_t value_new_integer_from_ssize_t(ssize_t i);
 extern value_t value_new_float(double f);
 extern value_t value_new_boolean(char b);
 extern value_t value_new_symbol(char** s, size_t len, size_t* str_lens, context_t ctx);
