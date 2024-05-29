@@ -40,6 +40,8 @@ extern value_t* value_get_vector(value_t v, context_t ctx);
 extern void value_free_vector(value_t* v);
 extern uint8_t* value_get_bytevector(value_t v, context_t ctx);
 extern void value_free_bytevector(uint8_t* v);
+extern void* value_get_c_value(value_t c);
+extern int64_t value_get_integer_as_i64(value_t c);
 
 extern exception_t exception_new(char** who, size_t symbol_len, size_t* symbol_lens, char* message, size_t string_len, context_t ctx);
 

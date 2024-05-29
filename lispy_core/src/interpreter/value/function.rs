@@ -373,6 +373,40 @@ impl Function {
 	}
     }
 
+    #[no_mangle]
+    pub extern "C" fn value_call_function(function: *mut Value, context: *mut Context, mut args: *mut *mut Value, args_len: usize, kwargs: *mut Kwargs, output: *mut CFunctionOutput) {
+	let context = unsafe { &mut *context};
+	let mut args_vec = Vec::new();
+	for _ in 0..args_len {
+	    let arg = unsafe { Box::from_raw(*args) };
+	    args_vec.push(*arg);
+	    unsafe {
+		args = args.add(1);
+	    }
+	}
+
+	let kwargs = unsafe {&mut *kwargs};
+	let function = unsafe {&mut *function};
+
+	let function = function.get_function(context);
+	match function {
+	    Err(err) => {
+		todo!("bind to output")
+	    },
+	    Ok(function) => {
+		match function.call_raw(args_vec, kwargs.clone(), context, &vec![]) {
+		    Err(err) => {
+			todo!("bind to output")
+		    },
+		    Ok(value) => {
+			todo!("bind to output")
+		    }
+		}
+	    }
+	}
+
+    }
+
 }
 
 /*impl Clone for Function {
@@ -393,7 +427,6 @@ impl Function {
     }
 }*/
 
-#[repr(C)]
 #[derive(Clone)]
 pub struct FunctionShape {
     args: Box<Vec<String>>,

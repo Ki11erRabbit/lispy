@@ -2,14 +2,14 @@
 
 
 ; A component contains it's raw datatype, an update function, and a view function
-(struct component [raw update view])
+(struct component [raw widget update view])
 
 ; Updates the component on a message event
 (define (update component message sender)
   ...)
 
 ; Modifies widgets to b the data to render
-(define (view component widgets sender)
+(define (view component sender)
   ...)
 
 ; An application contains the the root component which should be the window
@@ -50,18 +50,24 @@
 
 ; Built in components
 (define window nil)
-(define window-set-title nil)
-(define window-set-size nil)
-(define window-add-component nil)
-(define window-show nil)
+;(define window-set-title nil)
+;(define window-set-size nil)
+(define window-add nil)
+;(define window-get nil)
+;(define window-show nil)
 (define virtical-box nil)
 (define virtical-box-add nil)
-(define horizontal-box nil)
-(define horizontal-box-add nil)
+(define virtical-box-get nil)
+(define virtical-box-render nil)
+;(define horizontal-box nil)
+;(define horizontal-box-add nil)
+;(define horizontal-box-get nil)
 (define button nil)
-(define button-on-click nil)
+(define button-on-click-set! nil)
+(define button-render nil)
 (define label nil)
-(define label-set-text nil)
+(define label-text-set! nil)
+(define label-render nil)
 
 
 

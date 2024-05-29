@@ -927,6 +927,29 @@ impl Value {
 	}
     }
 
+    #[no_mangle]
+    pub extern "C" fn value_get_c_value(value: *mut Self) -> *mut c_void {
+	let value = unsafe { &*value };
+	match &value.raw {
+	    RawValue::Gc(gc) => {
+		match gc.get() {
+		    GcValue::CValue(v, _) => *v,
+		    _ => std::ptr::null_mut(),
+		}
+	    },
+	    _ => std::ptr::null_mut(),
+	}
+    }
+
+    #[no_mangle]
+    pub extern "C" fn value_get_integer_as_i64(value: *mut Self) -> i64 {
+	let value = unsafe { &*value };
+	match &value.raw {
+	    RawValue::Integer(i) => i.to_i64().unwrap(),
+	    _ => 0,
+	}
+    }
+
 
 }
 
