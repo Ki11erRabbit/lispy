@@ -731,17 +731,17 @@ void lispy_load_module(bindings_t bindings) {
     char* arg_names_gtk_label_text_set[] = {"label", "text"};
     size_t arg_names_len_gtk_label_text_set[] = {5, 4};
     fun_shape_t fun_shape_gtk_label_text_set = new_function_shape(arg_names_gtk_label_text_set, 2, arg_names_len_gtk_label_text_set);
-    bindings_add_binding(bindings, "lispy_gtk_label_text_set", 24, "label-text-set!", 14, fun_shape_gtk_label_text_set);
+    bindings_add_binding(bindings, "lispy_gtk_label_text_set", 24, "label-text-set!", 15, fun_shape_gtk_label_text_set);
 
     char* arg_names_gtk_label_xalign_set[] = {"label", "xalign"};
     size_t arg_names_len_gtk_label_xalign_set[] = {5, 6};
     fun_shape_t fun_shape_gtk_label_xalign_set = new_function_shape(arg_names_gtk_label_xalign_set, 2, arg_names_len_gtk_label_xalign_set);
-    bindings_add_binding(bindings, "lispy_gtk_label_xalign_set", 26, "label-xalign-set!", 16, fun_shape_gtk_label_xalign_set);
+    bindings_add_binding(bindings, "lispy_gtk_label_xalign_set", 26, "label-xalign-set!", 17, fun_shape_gtk_label_xalign_set);
 
     char* arg_names_gtk_label_yalign_set[] = {"label", "yalign"};
     size_t arg_names_len_gtk_label_yalign_set[] = {5, 6};
     fun_shape_t fun_shape_gtk_label_yalign_set = new_function_shape(arg_names_gtk_label_yalign_set, 2, arg_names_len_gtk_label_yalign_set);
-    bindings_add_binding(bindings, "lispy_gtk_label_yalign_set", 27, "label-yalign-set!", 16, fun_shape_gtk_label_yalign_set);
+    bindings_add_binding(bindings, "lispy_gtk_label_yalign_set", 27, "label-yalign-set!", 17, fun_shape_gtk_label_yalign_set);
 
     char* arg_names_gtk_spinner_new[] = {};
     size_t arg_names_len_gtk_spinner_new[] = {};
@@ -751,12 +751,12 @@ void lispy_load_module(bindings_t bindings) {
     char* arg_names_gtk_spinner_start[] = {"spinner"};
     size_t arg_names_len_gtk_spinner_start[] = {7};
     fun_shape_t fun_shape_gtk_spinner_start = new_function_shape(arg_names_gtk_spinner_start, 1, arg_names_len_gtk_spinner_start);
-    bindings_add_binding(bindings, "lispy_gtk_spinner_start", 23, "spinner-start", 12, fun_shape_gtk_spinner_start);
+    bindings_add_binding(bindings, "lispy_gtk_spinner_start", 23, "spinner-start", 13, fun_shape_gtk_spinner_start);
 
     char* arg_names_gtk_spinner_stop[] = {"spinner"};
     size_t arg_names_len_gtk_spinner_stop[] = {7};
     fun_shape_t fun_shape_gtk_spinner_stop = new_function_shape(arg_names_gtk_spinner_stop, 1, arg_names_len_gtk_spinner_stop);
-    bindings_add_binding(bindings, "lispy_gtk_spinner_stop", 23, "spinner-stop", 11, fun_shape_gtk_spinner_stop);
+    bindings_add_binding(bindings, "lispy_gtk_spinner_stop", 23, "spinner-stop", 12, fun_shape_gtk_spinner_stop);
 
     char* arg_names_gtk_level_bar_new[] = {};
     size_t arg_names_len_gtk_level_bar_new[] = {};
@@ -766,22 +766,22 @@ void lispy_load_module(bindings_t bindings) {
     char* arg_names_gtk_level_bar_value_set[] = {"level-bar", "value"};
     size_t arg_names_len_gtk_level_bar_value_set[] = {9, 5};
     fun_shape_t fun_shape_gtk_level_bar_value_set = new_function_shape(arg_names_gtk_level_bar_value_set, 2, arg_names_len_gtk_level_bar_value_set);
-    bindings_add_binding(bindings, "lispy_gtk_level_bar_value_set", 29, "level-bar-value-set!", 18, fun_shape_gtk_level_bar_value_set);
+    bindings_add_binding(bindings, "lispy_gtk_level_bar_value_set", 29, "level-bar-value-set!", 20, fun_shape_gtk_level_bar_value_set);
 
     char* arg_names_gtk_level_bar_value_get[] = {"level-bar"};
     size_t arg_names_len_gtk_level_bar_value_get[] = {9};
     fun_shape_t fun_shape_gtk_level_bar_value_get = new_function_shape(arg_names_gtk_level_bar_value_get, 1, arg_names_len_gtk_level_bar_value_get);
-    bindings_add_binding(bindings, "lispy_gtk_level_bar_value_get", 29, "level-bar-value-get", 18, fun_shape_gtk_level_bar_value_get);
+    bindings_add_binding(bindings, "lispy_gtk_level_bar_value_get", 29, "level-bar-value-get", 20, fun_shape_gtk_level_bar_value_get);
 
     char* arg_names_gtk_level_bar_min_value_set[] = {"level-bar", "min-value"};
     size_t arg_names_len_gtk_level_bar_min_value_set[] = {9, 9};
     fun_shape_t fun_shape_gtk_level_bar_min_value_set = new_function_shape(arg_names_gtk_level_bar_min_value_set, 2, arg_names_len_gtk_level_bar_min_value_set);
-    bindings_add_binding(bindings, "lispy_gtk_level_bar_min_value_set", 33, "level-bar-min-value-set!", 22, fun_shape_gtk_level_bar_min_value_set);
+    bindings_add_binding(bindings, "lispy_gtk_level_bar_min_value_set", 33, "level-bar-min-value-set!", 24, fun_shape_gtk_level_bar_min_value_set);
 
     char* arg_names_gtk_level_bar_min_value_get[] = {"level-bar"};
     size_t arg_names_len_gtk_level_bar_min_value_get[] = {9};
     fun_shape_t fun_shape_gtk_level_bar_min_value_get = new_function_shape(arg_names_gtk_level_bar_min_value_get, 1, arg_names_len_gtk_level_bar_min_value_get);
-    bindings_add_binding(bindings, "lispy_gtk_level_bar_min_value_get", 33, "level-bar-min-value-get", 22, fun_shape_gtk_level_bar_min_value_get);
+    bindings_add_binding(bindings, "lispy_gtk_level_bar_min_value_get", 33, "level-bar-min-value-get", 23, fun_shape_gtk_level_bar_min_value_get);
 
     char* arg_names_gtk_level_bar_max_value_set[] = {"level-bar", "max-value"};
     size_t arg_names_len_gtk_level_bar_max_value_set[] = {9, 9};
@@ -791,33 +791,33 @@ void lispy_load_module(bindings_t bindings) {
     char* arg_names_gtk_level_bar_max_value_get[] = {"level-bar"};
     size_t arg_names_len_gtk_level_bar_max_value_get[] = {9};
     fun_shape_t fun_shape_gtk_level_bar_max_value_get = new_function_shape(arg_names_gtk_level_bar_max_value_get, 1, arg_names_len_gtk_level_bar_max_value_get);
-    bindings_add_binding(bindings, "lispy_gtk_level_bar_max_value_get", 33, "level-bar-max-value-get", 22, fun_shape_gtk_level_bar_max_value_get);
+    bindings_add_binding(bindings, "lispy_gtk_level_bar_max_value_get", 33, "level-bar-max-value-get", 23, fun_shape_gtk_level_bar_max_value_get);
 
     char* arg_names_gtk_level_bar_add_offset_value[] = {"level-bar", "name", "value"};
     size_t arg_names_len_gtk_level_bar_add_offset_value[] = {9, 4, 5};
     fun_shape_t fun_shape_gtk_level_bar_add_offset_value = new_function_shape(arg_names_gtk_level_bar_add_offset_value, 3, arg_names_len_gtk_level_bar_add_offset_value);
-    bindings_add_binding(bindings, "lispy_gtk_level_bar_add_offset_value", 36, "level-bar-add-offset-value!", 24, fun_shape_gtk_level_bar_add_offset_value);
+    bindings_add_binding(bindings, "lispy_gtk_level_bar_add_offset_value", 36, "level-bar-add-offset-value", 26, fun_shape_gtk_level_bar_add_offset_value);
 
     char* arg_names_gtk_level_bar_remove_offset_value[] = {"level-bar", "name"};
     size_t arg_names_len_gtk_level_bar_remove_offset_value[] = {9, 4};
     fun_shape_t fun_shape_gtk_level_bar_remove_offset_value = new_function_shape(arg_names_gtk_level_bar_remove_offset_value, 2, arg_names_len_gtk_level_bar_remove_offset_value);
-    bindings_add_binding(bindings, "lispy_gtk_level_bar_remove_offset_value", 39, "level-bar-remove-offset-value!", 27, fun_shape_gtk_level_bar_remove_offset_value);
+    bindings_add_binding(bindings, "lispy_gtk_level_bar_remove_offset_value", 39, "level-bar-remove-offset-value", 29, fun_shape_gtk_level_bar_remove_offset_value);
 
     char* arg_names_gtk_progress_bar_new[] = {};
     size_t arg_names_len_gtk_progress_bar_new[] = {};
     fun_shape_t fun_shape_gtk_progress_bar_new = new_function_shape(arg_names_gtk_progress_bar_new, 0, arg_names_len_gtk_progress_bar_new);
-    bindings_add_binding(bindings, "lispy_gtk_progress_bar_new", 26, "progress-bar-new", 14, fun_shape_gtk_progress_bar_new);
+    bindings_add_binding(bindings, "lispy_gtk_progress_bar_new", 26, "progress-bar-new", 16, fun_shape_gtk_progress_bar_new);
 
 
     char* arg_names_gtk_scroll_bar_vertical_new[] = {};
     size_t arg_names_len_gtk_scroll_bar_vertical_new[] = {};
     fun_shape_t fun_shape_gtk_scroll_bar_vertical_new = new_function_shape(arg_names_gtk_scroll_bar_vertical_new, 0, arg_names_len_gtk_scroll_bar_vertical_new);
-    bindings_add_binding(bindings, "lispy_gtk_scroll_bar_vertical_new", 33, "scroll-bar-vertical-new", 22, fun_shape_gtk_scroll_bar_vertical_new);
+    bindings_add_binding(bindings, "lispy_gtk_scroll_bar_vertical_new", 33, "scroll-bar-vertical-new", 23, fun_shape_gtk_scroll_bar_vertical_new);
 
     char* arg_names_gtk_scroll_bar_horizontal_new[] = {};
     size_t arg_names_len_gtk_scroll_bar_horizontal_new[] = {};
     fun_shape_t fun_shape_gtk_scroll_bar_horizontal_new = new_function_shape(arg_names_gtk_scroll_bar_horizontal_new, 0, arg_names_len_gtk_scroll_bar_horizontal_new);
-    bindings_add_binding(bindings, "lispy_gtk_scroll_bar_horizontal_new", 36, "scroll-bar-horizontal-new", 24, fun_shape_gtk_scroll_bar_horizontal_new);
+    bindings_add_binding(bindings, "lispy_gtk_scroll_bar_horizontal_new", 36, "scroll-bar-horizontal-new", 25, fun_shape_gtk_scroll_bar_horizontal_new);
 
 
     

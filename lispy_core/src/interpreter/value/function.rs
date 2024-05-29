@@ -408,6 +408,7 @@ impl Function {
 	match function {
 	    Err(err) => {
 		unsafe {
+		    println!("Error: {:?}", err);
 		    *output = CFunctionOutput::Exception(*err);
 		}
 	    },
@@ -415,6 +416,7 @@ impl Function {
 		match function.call_raw(args_vec, kwargs.clone(), context, &vec![]) {
 		    Err(err) => {
 			unsafe {
+			    println!("Error: {:?}", err);
 			    *output = CFunctionOutput::Exception(*err);
 			}
 		    },
@@ -426,6 +428,7 @@ impl Function {
 		    Ok(None) => {
 			unsafe {
 			    let empty: Vec<&str> = Vec::new();
+			    println!("Error: Function didn't result into a value");
 			    *output = CFunctionOutput::Exception(Exception::new(&empty, "Function didn't result into a value", context));
 			}
 		    }
@@ -487,8 +490,6 @@ impl FunctionShape {
 
     #[no_mangle]
     pub extern "C" fn new_function_shape(args: *mut *mut c_char, len: usize, str_lens: *mut usize) -> *mut FunctionShape {
-	//TODO: check this function for memory issues
-	let pointer: *mut i8 = std::ptr::null_mut();
 	let mut arg_vec = Vec::new();
 	unsafe {
 	    for i in 0..len {
