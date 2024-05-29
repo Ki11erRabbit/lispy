@@ -27,7 +27,7 @@ extern value_t value_new_c_value(void* value, void (*free)(void*), context_t ctx
 extern value_t value_new_function(void (*fun)(context_t, value_t args, size_t arg_len, kwargs_t kwargs, output_t output), fun_shape_t shape, context_t ctx);
 extern value_t value_new_bytevector(uint8_t* vec, size_t len, context_t ctx);
 
-extern value_t value_get_string(value_t v, context_t ctx);
+extern char* value_get_string(value_t v, context_t ctx);
 extern void value_free_string(char* s);
 extern double value_get_float(value_t v, context_t ctx);
 extern char value_get_boolean(value_t v, context_t ctx);
@@ -45,10 +45,21 @@ extern int64_t value_get_integer_as_i64(value_t c);
 
 extern exception_t exception_new(char** who, size_t symbol_len, size_t* symbol_lens, char* message, size_t string_len, context_t ctx);
 
+extern output_t output_new(void);
+extern void output_free(output_t output);
 extern void set_return_value(output_t output, value_t value);
 extern void set_exception_value(output_t output, exception_t value);
 
 extern fun_shape_t new_function_shape(char** args, size_t len, size_t* str_lens);
+extern void value_call_function(value_t fun, context_t ctx, value_t* args, size_t arg_len, kwargs_t kwargs, output_t output);
+
+extern kwargs_t kwargs_new(void);
+extern void kwargs_free(kwargs_t kwargs);
+extern value_t kwargs_get_value(kwargs_t kwargs, char* key, size_t len);
+extern void kwargs_insert_value(kwargs_t kwargs, char* key, size_t len, value_t value);
+extern size_t kwargs_len(kwargs_t kwargs);
+extern char kwargs_is_empty(kwargs_t kwargs);
+
 
 extern void context_define(context_t ctx, char* name, size_t len, value_t value);
 extern void context_push_frame(context_t ctx);
@@ -58,6 +69,7 @@ extern void context_add_module(context_t ctx, char* name, module_t module);
 extern module_t module_new_loaded(frame_t frame);
 
 extern void bindings_add_binding(bindings_t bindings, char* name, size_t len, char* binding, size_t binding_len, fun_shape_t shape);
+
 
 // Implement this function in C
 void lispy_load_module(bindings_t bindings);

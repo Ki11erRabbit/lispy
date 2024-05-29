@@ -17,6 +17,18 @@ pub enum CFunctionOutput {
 
 impl CFunctionOutput {
     #[no_mangle]
+    pub extern "C" fn output_new() -> *mut CFunctionOutput {
+	Box::into_raw(Box::new(CFunctionOutput::Blank))
+    }
+
+    #[no_mangle]
+    pub extern "C" fn output_free(output: *mut CFunctionOutput) {
+	unsafe {
+	    drop(Box::from_raw(output));
+	}
+    }
+    
+    #[no_mangle]
     pub extern "C" fn set_return_value(&mut self, value: *mut Value) {
 	unsafe {
 	    let value = Box::from_raw(value);
@@ -374,7 +386,12 @@ impl Function {
     }
 
     #[no_mangle]
-    pub extern "C" fn value_call_function(function: *mut Value, context: *mut Context, mut args: *mut *mut Value, args_len: usize, kwargs: *mut Kwargs, output: *mut CFunctionOutput) {
+    pub extern "C" fn value_call_function(function: *mut Value,
+					  context: *mut Context,
+					  mut args: *mut *mut Value,
+					  args_len: usize,
+					  kwargs: *mut Kwargs,
+					  output: *mut CFunctionOutput) {
 	let context = unsafe { &mut *context};
 	let mut args_vec = Vec::new();
 	for _ in 0..args_len {
@@ -391,15 +408,27 @@ impl Function {
 	let function = function.get_function(context);
 	match function {
 	    Err(err) => {
-		todo!("bind to output")
+		unsafe {
+		    *output = CFunctionOutput::Exception(*err);
+		}
 	    },
 	    Ok(function) => {
 		match function.call_raw(args_vec, kwargs.clone(), context, &vec![]) {
 		    Err(err) => {
-			todo!("bind to output")
+			unsafe {
+			    *output = CFunctionOutput::Exception(*err);
+			}
 		    },
-		    Ok(value) => {
-			todo!("bind to output")
+		    Ok(Some(value)) => {
+			unsafe {
+			    *output = CFunctionOutput::Value(value);
+			}
+		    }
+		    Ok(None) => {
+			unsafe {
+			    let empty: Vec<&str> = Vec::new();
+			    *output = CFunctionOutput::Exception(Exception::new(&empty, "Function didn't result into a value", context));
+			}
 		    }
 		}
 	    }
@@ -466,9 +495,11 @@ impl FunctionShape {
 	    for i in 0..len {
 		let arg = *args.offset(i as isize);
 		let len = *str_lens.offset(i as isize);
-		let slice = std::slice::from_raw_parts(arg as *const u8, len);
-		let c_str = std::ffi::CStr::from_bytes_with_nul(slice).expect("invalid c string");
-		let string = c_str.to_str().expect("invalid utf8 string");
+		let mut buf = Vec::new();
+		for j in 0..len {
+		    buf.push(u8::from_ne_bytes((*arg.offset(j as isize)).to_ne_bytes()));//todo convert into byte then get u8
+		}
+		let string = std::str::from_utf8(&buf).expect("not a valid utf8 string");
 		arg_vec.push(string.to_string());
 	    }
 	}

@@ -15,6 +15,10 @@ impl Kwargs {
 	}
     }
 
+    pub fn len(&self) -> usize {
+	self.keywords.len()
+    }
+
     pub fn insert(&mut self, key: String, value: Value) {
 	self.keywords.insert(key, value);
     }
@@ -48,9 +52,31 @@ impl Kwargs {
     }
 
     #[no_mangle]
-    pub extern "C" fn get_value(&self, key: *const c_char) -> *const Value {
-	let key = unsafe { std::ffi::CStr::from_ptr(key) };
-	let key = key.to_str().expect("key is not a valid utf8 string");
+    pub extern "C" fn kwargs_new() -> *mut Kwargs {
+	Box::into_raw(Box::new(Kwargs::new()))
+    }
+
+    #[no_mangle]
+    pub extern "C" fn kwargs_free(ptr: *mut Kwargs) {
+	if ptr.is_null() {
+	    return;
+	}
+	unsafe {
+	    drop(Box::from_raw(ptr));
+	}
+    }
+    
+    #[no_mangle]
+    pub extern "C" fn kwargs_get_value(&self, key: *const c_char, len: usize) -> *const Value {
+	let mut vec_buf = Vec::with_capacity(len);
+	for i in 0..len {
+	    let c = unsafe { *key.offset(i as isize) };
+	    if c == 0 {
+		break;
+	    }
+	    vec_buf.push(c as u8);// TODO convert to byte then to u8
+	}
+	let key = std::str::from_utf8(&vec_buf).expect("key is not a valid utf8 string");
 	match self.get(key) {
 	    Some(value) => value,
 	    None => std::ptr::null(),
@@ -58,20 +84,27 @@ impl Kwargs {
     }
 
     #[no_mangle]
-    pub extern "C" fn insert_value(&mut self, key: *const c_char, value: *const Value) {
-	let key = unsafe { std::ffi::CStr::from_ptr(key) };
-	let key = key.to_str().expect("key is not a valid utf8 string").to_string();
+    pub extern "C" fn kwargs_insert_value(&mut self, key: *const c_char, len: usize, value: *const Value) {
+	let mut vec_buf = Vec::with_capacity(len);
+	for i in 0..len {
+	    let c = unsafe { *key.offset(i as isize) };
+	    if c == 0 {
+		break;
+	    }
+	    vec_buf.push(c as u8);// TODO convert to byte then to u8
+	}
+	let key = std::str::from_utf8(&vec_buf).expect("key is not a valid utf8 string").to_string();
 	let value = unsafe { &*value };
 	self.insert(key, value.clone());
     }
 
     #[no_mangle]
-    pub extern "C" fn len(&self) -> usize {
+    pub extern "C" fn kwargs_len(&self) -> usize {
 	self.keywords.len()
     }
 
     #[no_mangle]
-    pub extern "C" fn is_empty(&self) -> bool {
+    pub extern "C" fn kwargs_is_empty(&self) -> bool {
 	self.keywords.is_empty()
     }
 }
