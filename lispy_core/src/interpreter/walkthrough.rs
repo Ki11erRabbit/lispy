@@ -30,9 +30,7 @@ pub fn walk_through(sexpr: &Sexpr, context: &mut Context, module_name: &Vec<Stri
         Sexpr::Atom(atom) => {
             match atom {
                 Atom::String(s) => {
-		    println!("creating string");
 		    let string = Value::new_string(s, context);
-		    println!("string: {}", string);
                     Ok(Some(string))
                 }
                 Atom::Integer(i) => {
@@ -104,7 +102,6 @@ pub fn walk_through(sexpr: &Sexpr, context: &mut Context, module_name: &Vec<Stri
             Ok(Some(Value::new_vector(output, context)))
         }
         Sexpr::List(list) => {
-	    println!("{:?}\n\n", list);
             walk_through_list(list, context, module_name)
         }
     }

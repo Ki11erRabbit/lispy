@@ -66,7 +66,7 @@ pub fn load_dynamic_libs(context: &mut Context, module_name: &str, load_path: &s
 	    load_module(&mut bindings);
 
 	    for (name, binding, shape) in bindings.bindings {
-		let fun = lib.get::<unsafe extern "C" fn(*mut Context, *mut Value, usize, *mut Kwargs, *mut CFunctionOutput)>(name.as_bytes())?;
+		let fun = lib.get::<unsafe extern "C" fn(*mut Context, *mut *mut Value, usize, *mut Kwargs, *mut CFunctionOutput)>(name.as_bytes())?;
 
 		let function = Function::CNative(*fun, shape);
 		let function = Value::new_function(function, context);
@@ -96,7 +96,7 @@ pub fn load_dynamic_lib(context: &mut Context, module_name: &str, load_path: &st
 	load_module(&mut bindings);
 
 	for (name, binding, shape) in bindings.bindings {
-	    let fun = lib.get::<unsafe extern "C" fn(*mut Context, *mut Value, usize, *mut Kwargs, *mut CFunctionOutput)>(name.as_bytes())?;
+	    let fun = lib.get::<unsafe extern "C" fn(*mut Context, *mut *mut Value, usize, *mut Kwargs, *mut CFunctionOutput)>(name.as_bytes())?;
 
 	    let function = Function::CNative(*fun, shape);
 	    let function = Value::new_function(function, context);
@@ -122,7 +122,7 @@ pub fn load_dynamic_lib_into(context: &mut Context, load_path: &str) -> Result<(
 	load_module(&mut bindings);
 
 	for (name, binding, shape) in bindings.bindings {
-	    let fun = lib.get::<unsafe extern "C" fn(*mut Context, *mut Value, usize, *mut Kwargs, *mut CFunctionOutput)>(name.as_bytes())?;
+	    let fun = lib.get::<unsafe extern "C" fn(*mut Context, *mut *mut Value, usize, *mut Kwargs, *mut CFunctionOutput)>(name.as_bytes())?;
 
 	    let function = Function::CNative(*fun, shape);
 	    let function = Value::new_function(function, context);

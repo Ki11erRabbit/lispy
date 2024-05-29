@@ -50,7 +50,7 @@ pub enum Function {
     Tree(Vec<String>, Sexpr, ContextFrame, FunctionShape),
     Native(fn(&mut Context, Vec<Value>, Kwargs) -> HelperResult<Value>, FunctionShape),
     Bytecode(Vec<String>, Vec<Bytecode>, FunctionShape),
-    CNative(unsafe extern "C" fn(*mut Context, *mut Value, usize, *mut Kwargs, *mut CFunctionOutput), FunctionShape),
+    CNative(unsafe extern "C" fn(*mut Context, *mut *mut Value, usize, *mut Kwargs, *mut CFunctionOutput), FunctionShape),
 }
 
 impl Function {
@@ -97,12 +97,12 @@ impl Function {
 		value
 	    },
 	    Function::CNative(f, _) => {
-		let mut args = args.clone();
-		let mut kargs = kargs.clone();
-		let mut context = context.clone();
+		let mut args = args.clone().into_iter().map(|x| Box::into_raw(Box::new(x))).collect::<Vec<*mut Value>>();
+		let mut kargs = kargs;
+		let context = context;
 		let mut output = CFunctionOutput::Blank;
 		unsafe {
-		    f(&mut context, args.as_mut_ptr(), args.len(), &mut kargs, &mut output);
+		    f(context, args.as_mut_ptr(), args.len(), &mut kargs, &mut output);
 		};
 
 		match output {
@@ -293,12 +293,12 @@ impl Function {
 		    }
 		}
 		shape.check(&name, &args, &keyword_args, context)?;
-		let mut args = args.clone();
-		let mut kargs = keyword_args.clone();
-		let mut context = context.clone();
+		let mut args = args.clone().into_iter().map(|x| Box::into_raw(Box::new(x))).collect::<Vec<*mut Value>>();
+		let mut kargs = keyword_args;
+		let context = context;
 		let mut output = CFunctionOutput::Blank;
 		unsafe {
-		    f(&mut context, args.as_mut_ptr(), args.len(), &mut kargs, &mut output);
+		    f(context, args.as_mut_ptr(), args.len(), &mut kargs, &mut output);
 		};
 
 		match output {
@@ -364,12 +364,12 @@ impl Function {
 	    Function::CNative(f, shape) => {
 		shape.check(&name, &args, &kargs, context)?;
 
-		let mut args = args.clone();
-		let mut kargs = kargs.clone();
-		let mut context = context.clone();
+		let mut args = args.clone().into_iter().map(|x| Box::into_raw(Box::new(x))).collect::<Vec<*mut Value>>();
+		let mut kargs = kargs;
+		let context = context;
 		let mut output = CFunctionOutput::Blank;
 		unsafe {
-		    f(&mut context, args.as_mut_ptr(), args.len(), &mut kargs, &mut output);
+		    f(context, args.as_mut_ptr(), args.len(), &mut kargs, &mut output);
 		};
 
 		match output {

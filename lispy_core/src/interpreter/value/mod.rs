@@ -716,7 +716,7 @@ impl Value {
     }
 
     #[no_mangle]
-    pub extern "C" fn value_new_function(value: unsafe extern "C" fn(*mut Context, *mut Value, usize, *mut Kwargs, *mut CFunctionOutput), shape: *mut FunctionShape, context: *mut Context) -> *mut Self {
+    pub extern "C" fn value_new_function(value: unsafe extern "C" fn(*mut Context, *mut *mut Value, usize, *mut Kwargs, *mut CFunctionOutput), shape: *mut FunctionShape, context: *mut Context) -> *mut Self {
 	let context = unsafe { &mut *context };
 	let shape = unsafe { Box::from_raw(shape) };
 	let function = Function::CNative(value, *shape);
