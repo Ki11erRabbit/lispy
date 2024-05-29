@@ -293,7 +293,6 @@ impl Function {
 		    }
 		}
 		shape.check(&name, &args, &keyword_args, context)?;
-
 		let mut args = args.clone();
 		let mut kargs = keyword_args.clone();
 		let mut context = context.clone();
