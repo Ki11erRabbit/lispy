@@ -6,15 +6,20 @@
 
 (define gui-lib (gui.init-gui "gtk.scm"))
 
+(define init-button (lambda (x) (let 
+                                 [(button (gui.button "Hello World!"))] 
+                                    (begin 
+                                        (gui.button-on-click-set! button (lambda (x) (display "Hello World!\n"))) 
+                                        nil))))
+
 (display "creating button\n")
-(debug-display gui.button-on-click-set!)
-(define button (gui.button "Hello World!"))
+;(define button (gui.button "Hello World!"))
 
 (display "setting button on click\n")
-(gui.button-on-click-set! button (lambda (x) (display "Hello World!")))
+;(gui.button-on-click-set! button (lambda (x) (display "Hello World!")))
 
 (display "running application\n")
 (define handle-message (lambda (message) nil))
 
 (display "running application\n")
-(gui.run-application "org.test.hello-world" button handle-message)
+(gui.run-application "org.test.hello-world" init-button handle-message)

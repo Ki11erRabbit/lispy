@@ -1014,10 +1014,13 @@ void lispy_gtk_image_from_resource_set(context_t ctx, value_t* args, size_t args
 /* Label Button */
 
 void lispy_gtk_label_button_new(context_t ctx, value_t* args, size_t args_len, kwargs_t kwargs, output_t ret_value) {
+    printf("Creating Label Button\n");
     char* label = NULL;
     if (args_len == 1) {
+        printf("Getting Label\n");
         label = value_get_string(args[0], ctx);
     } else if (kwargs_len(kwargs) == 1) {
+        printf("Getting Label\n");
         label = value_get_string(kwargs_get_value(kwargs, "label", 5), ctx);
     } else {
         char* who[] = {"label-button-new"};
@@ -1026,10 +1029,11 @@ void lispy_gtk_label_button_new(context_t ctx, value_t* args, size_t args_len, k
         set_exception_value(ret_value, e);
         return;
     }
+    printf("Creating Button\n");
     GtkWidget* button = gtk_button_new_with_label(label);
     value_t button_val = value_new_c_value(button, lispy_gtk_free, ctx);
     set_return_value(ret_value, button_val);
-    //value_free_string(label);
+    value_free_string(label);
 }
 
 void lispy_gtk_button_onclick_set(context_t ctx, value_t* args, size_t args_len, kwargs_t kwargs, output_t ret_value) {

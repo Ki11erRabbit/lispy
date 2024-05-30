@@ -288,7 +288,7 @@ fn expand_real_single<'a> (bindings: &mut MacroContext, sexpr: &'a Sexpr, macros
 
 fn expand_list<'a>(bindings: &mut MacroContext, list: &'a Vec<Sexpr>, macros: &mut HashSet<Macro>) -> Option<Sexpr> {
     if list.is_empty() {
-	//return;
+		return None;
     }
     if let Sexpr::Atom(Atom::Symbol(s)) = &list[0] {
 	match s[0].as_str() {
