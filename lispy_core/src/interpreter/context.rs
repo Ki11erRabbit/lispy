@@ -67,13 +67,16 @@ impl ContextFrame {
 pub struct Context {
     gc_lock: Arc<RwLock<()>>,
     sender: Sender<Gc<GcValue>>,
-    modules: RefCell<HashMap<String, Module>>,
+    //modules: RefCell<HashMap<String, Module>>,
     frames: Vec<ContextFrame>,
     type_table: Arc<RwLock<Vec<Value>>>,
     symbols_to_table: Arc<RwLock<HashMap<Vec<String>, usize>>>,
     enum_idicies: Arc<RwLock<HashSet<usize>>>,
     macros: Arc<RwLock<HashSet<Macro>>>,
     dynamic_libraries: Arc<RwLock<Vec<libloading::Library>>>,
+    files_to_modules: Arc<RwLock<HashMap<String, usize>>>,
+    paths_to_modules: Arc<RwLock<HashMap<Vec<String>, usize>>>,
+    modules: Arc<RwLock<Vec<Module>>>,
 }
 
 impl Context {
@@ -81,13 +84,16 @@ impl Context {
 	let mut ctx = Context {
 	    gc_lock,
 	    sender,
-	    modules: RefCell::new(HashMap::new()),
+	    //modules: RefCell::new(HashMap::new()),
 	    frames: vec![],
 	    type_table: Arc::new(RwLock::new(Vec::new())),
 	    symbols_to_table: Arc::new(RwLock::new(HashMap::new())),
 	    enum_idicies: Arc::new(RwLock::new(HashSet::new())),
 	    macros: Arc::new(RwLock::new(macros)),
 	    dynamic_libraries: Arc::new(RwLock::new(Vec::new())),
+	    files_to_modules: Arc::new(RwLock::new(HashMap::new())),
+	    paths_to_modules: Arc::new(RwLock::new(HashMap::new())),
+	    modules: Arc::new(RwLock::new(Vec::new())),
 	};
 	let string_name = Value::new_symbol(vec!["string".to_string()], &mut ctx);
 	let integer_name = Value::new_symbol(vec!["integer".to_string()], &mut ctx);
@@ -179,46 +185,32 @@ impl Context {
 	self.get(name, &vec![]).is_some()
     }
 
-    pub fn get(&self, name: &Vec<String>, module_name: &Vec<String>) -> Option<Value> {
-	println!("get: {:?} {:?}", name, module_name);
-        if name.len() == 1 {
-            let value = self.get_from_frame(&name[0]);
-	    if value.is_some() {
-		return value.cloned();
-	    }
-        }
+    fn lookup_module_in_path(&self, name: &[String]) -> Option<usize> {
+	let mut module = self.paths_to_modules.read().unwrap().get(name);
+	if module.is_some() {
+	    return module.cloned();
+	}
+	None
+    }
 
-	let out = if module_name.len() > 0 {
-	    let mut lookup = module_name.clone();
-	    lookup.append(&mut name.clone());
-	    let module_borrow = self.modules.borrow();
-	    let module = module_borrow.get(&lookup[0]);
-	    if let Some(module) = module {
-		module.get(&lookup.as_slice()[1..], self)
-	    } else {
-		drop(module_borrow);
-		if let Some(module) = self.modules.borrow_mut().get_mut(&name[0]) {
-		    module.get(&name.as_slice()[1..], self)
-		} else {
-		    let value = self.get_from_frame(&name[0]);
-		    return value.cloned();
-		}
-	    }
-	} else {
-	    if let Some(module) = self.modules.borrow_mut().get_mut(&name[0]) {
-		module.get(&name.as_slice()[1..], self)
-	    } else {
-		let value = self.get_from_frame(&name[0]);
-		return value.cloned();
-	    }
+    pub fn get(&self, name: Vec<String>) -> Option<Value> {
+	println!("get: {:?} {:?}", name, module_name);
+
+	let value = self.get_from_frame(&name.last().unwrap());
+	if value.is_some() {
+	    return value.cloned();
+	}
+
+	let module_index = self.lookup_module_in_path(&name.as_slice()[..name.len() - 1]);
+	let Some(module_index) = module_index else {
+	    return None;
 	};
 
-	if out.is_none() {
-            let value = self.get_from_frame(&name[0]);
-            return value.cloned();
-	} else {
-	    out
-	}
+	let Some(module) = self.get_module(module_index) else {
+	    return None;
+	};
+
+	module.get(&name, self)
     }
 
     pub fn define(&mut self, name: &str, value: Value) {
@@ -229,10 +221,10 @@ impl Context {
 	if name.len() == 1 {
 	    self.define(&name[0], value);
 	} else {
-	    if let Some(_) = self.modules.borrow_mut().get_mut(&name[0]) {
+	    //if let Some(_) = self.modules.borrow_mut().get_mut(&name[0]) {
 		todo!("bind to module");
 		//module.bind(&name.as_slice()[1..], value, self);
-	    }
+	    //}
 	}
     }
 
