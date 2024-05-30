@@ -17,7 +17,7 @@
 
 (define label gtk.label-new)
 (define label-text-set! gtk.label-text-set!)
-(define label-text-get gtk.label-text-get)
+;(define label-text-get gtk.label-text-get)
 
 
 
