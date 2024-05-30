@@ -314,7 +314,10 @@ fn expand_list<'a>(bindings: &mut MacroContext, list: &'a Vec<Sexpr>, macros: &m
 						new_bindings.push(Sexpr::List(vec![Sexpr::Atom(Atom::Symbol(s.clone())), expanded]));
 					    }
 					},
-					_ => todo!("make an error"),
+					_ => {
+					    println!("{:?}", sets);
+					    todo!("make an error")
+					},
 				    }
 				},
 				_ => todo!("make an error"),
@@ -470,7 +473,10 @@ fn expand_define<'a>(bindings: &mut MacroContext, list: &'a Vec<Sexpr>, macros: 
 	    bindings.pop();
 	    return out;
 	},
-	_ => todo!("make an error"),
+	_ => {
+	    println!("{:?}", list);
+	    todo!("make an error")
+	},
     }
 }
 

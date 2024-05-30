@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::cell::RefCell;
 use crate::interpreter::value::Value;
 
@@ -10,8 +10,8 @@ use super::context::{ContextFrame, Context};
 enum RawModule {
     File(String, Vec<String>),
     Loaded {
-	submodules: Arc<HashMap<String, Module>>,
-	frame: Arc<ContextFrame>,
+	submodules: Arc<Mutex<HashMap<String, Module>>>,
+	frame: Arc<Mutex<ContextFrame>>,
     },
 }
 
@@ -30,8 +30,8 @@ impl Module {
     pub fn new_loaded(submodules: HashMap<String, Module>, frame: ContextFrame) -> Self {
 	Module {
 	    raw_module: RefCell::new(RawModule::Loaded {
-		submodules: Arc::new(submodules),
-		frame: Arc::new(frame),
+		submodules: Arc::new(Mutex::new(submodules)),
+		frame: Arc::new(Mutex::new(frame)),
 	    }),
 	}
     }
@@ -39,8 +39,8 @@ impl Module {
     pub fn new_from_context(mut context: Context) -> Self {
 	Module {
 	    raw_module: RefCell::new(RawModule::Loaded {
-		submodules: Arc::new(HashMap::new()),
-		frame: Arc::new(context.pop_frame().expect("pop error")),
+		submodules: Arc::new(Mutex::new(HashMap::new())),
+		frame: Arc::new(Mutex::new(context.pop_frame().expect("pop error"))),
 	    }),
 	}
     }
@@ -66,8 +66,8 @@ impl Module {
 			crate::interpreter::walkthrough::run(file, &mut context, &module_name).expect("run error");
 			let frame = context.pop_frame().expect("pop error");
 			let submodules = context.pop_modules();
-			let frame = Arc::new(frame);
-			let submodules = Arc::new(submodules);
+			let frame = Arc::new(Mutex::new(frame));
+			let submodules = Arc::new(Mutex::new(submodules));
 			new_self = Some(RawModule::Loaded {
 			    submodules,
 			    frame,
@@ -91,9 +91,9 @@ impl Module {
 	    RawModule::File(_, _) => unreachable!(),
 	    RawModule::Loaded { submodules, frame } => {
 		if path.len() == 1 {
-		    return frame.get(&path[0]).cloned();
+		    return frame.lock().expect("mutex poisoned").get(&path[0]).cloned();
 		}
-		if let Some(module) = submodules.get(&path[0]) {
+		if let Some(module) = submodules.lock().unwrap().get(&path[0]) {
 		    module.get(&path[1..], context)
 		} else {
 		    None
@@ -106,10 +106,10 @@ impl Module {
 	match &*self.raw_module.borrow() {
 	    RawModule::File(_, _) => {},
 	    RawModule::Loaded { submodules, frame } => {
-		for (_, module) in submodules.iter() {
+		for (_, module) in submodules.lock().unwrap().iter() {
 		    module.mark();
 		}
-		frame.mark();
+		frame.lock().unwrap().mark();
 	    }
 	}
     }
@@ -118,10 +118,10 @@ impl Module {
 	match &*self.raw_module.borrow() {
 	    RawModule::File(_, _) => {},
 	    RawModule::Loaded { submodules, frame } => {
-		for (_, module) in submodules.iter() {
+		for (_, module) in submodules.lock().unwrap().iter() {
 		    module.unmark();
 		}
-		frame.unmark();
+		frame.lock().unwrap().unmark();
 	    }
 	}
     }
@@ -134,12 +134,12 @@ impl Module {
 		if path.is_empty() {
 		    return Some(self.clone());
 		} else if path.len() == 1 {
-		    match submodules.get(&path[0]).cloned() {
+		    match submodules.lock().unwrap().get(&path[0]).cloned() {
 			None => None,
 			Some(module) => module.get_submodule(&[], context),
 		    }
 		} else {
-		    if let Some(module) = submodules.get(&path[0]) {
+		    if let Some(module) = submodules.lock().unwrap().get(&path[0]) {
 			module.get_submodule(&path[1..], context)
 		    } else {
 			None
@@ -152,7 +152,33 @@ impl Module {
     pub fn into_loaded(self) -> Option<(HashMap<String, Module>, ContextFrame)> {
 	match self.raw_module.into_inner() {
 	    RawModule::File(_, _) => None,
-	    RawModule::Loaded { submodules, frame } => Some(((*submodules).clone(), (*frame).clone())),
+	    RawModule::Loaded { submodules, frame } => Some(((*submodules.lock().unwrap()).clone(), (*frame.lock().unwrap()).clone())),
+	}
+    }
+
+    pub fn rebind(&mut self, path: &[String], value: Value, context: &Context) {
+	self.load(context);
+	match &mut *self.raw_module.borrow_mut() {
+	    RawModule::File(_, _) => unreachable!(),
+	    RawModule::Loaded { submodules, frame } => {
+		if path.len() == 1 {
+		    frame.lock().unwrap().rebind(&path[0], value);
+		} else {
+		    if let Some(module) = submodules.lock().unwrap().get_mut(&path[0]) {
+			module.rebind(&path[1..], value, context);
+		    }
+		}
+	    }
+	}
+    }
+
+    pub fn add_module(&mut self, name: String, module: Module, context: &Context) {
+	self.load(context);
+	match &mut *self.raw_module.borrow_mut() {
+	    RawModule::File(_, _) => unreachable!(),
+	    RawModule::Loaded { submodules, .. } => {
+		submodules.lock().unwrap().insert(name, module);
+	    }
 	}
     }
 		    

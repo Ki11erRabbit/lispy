@@ -58,6 +58,10 @@ impl ContextFrame {
 	    self.bindings.insert(name, value);
 	}
     }
+
+    pub fn rebind(&mut self, name: &str, value: Value) {
+	self.bindings.insert(name.to_string(), value);
+    }
 }
 
 pub struct Context {
@@ -176,6 +180,7 @@ impl Context {
     }
 
     pub fn get(&self, name: &Vec<String>, module_name: &Vec<String>) -> Option<Value> {
+	println!("get: {:?} {:?}", name, module_name);
         if name.len() == 1 {
             let value = self.get_from_frame(&name[0]);
 	    if value.is_some() {
@@ -231,17 +236,36 @@ impl Context {
 	}
     }
 
-    pub fn rebind(&mut self, name: &str, value: Value) {
-	for frame in self.frames.iter_mut().rev() {
-	    if frame.bindings.contains_key(name) {
-		frame.bindings.insert(name.to_string(), value);
-		return;
+    pub fn rebind(&mut self, name: &Vec<String>, value: Value) {
+	if name.len() == 1 {
+	    for frame in self.frames.iter_mut().rev() {
+		if frame.bindings.contains_key(&name[0]) {
+		    frame.bindings.insert(name[0].to_string(), value);
+		    return;
+		}
 	    }
+	}
+
+	if let Some(module) = self.modules.borrow_mut().get_mut(&name[0]) {
+	    module.rebind(&name.as_slice()[1..], value, self);
 	}
     }
 
     pub fn add_module(&mut self, name: &str, module: Module) {
 	self.modules.borrow_mut().insert(name.to_string(), module);
+    }
+
+    pub fn add_module_with_path(&mut self, path: &Vec<String>, module_to_add: Module) {
+	if path.len() == 1 {
+	    self.add_module(&path[0], module_to_add);
+	} else {
+	    let module = self.modules.borrow_mut().get_mut(&path[0]).unwrap().clone();
+	    let mut path = path.clone();
+	    path.remove(0);
+	    let name = path.pop().unwrap();
+	    let mut module = module.get_submodule(&path, self).unwrap();
+	    module.add_module(name, module_to_add, self);
+	}
     }
     
     pub fn garbage_collect(&mut self) {

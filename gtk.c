@@ -611,11 +611,11 @@ void lispy_gtk_progress_bar_show_text_set(context_t ctx, value_t* args, size_t a
     if (args_len == 2) {
         value_t progress_bar_val = args[0];
         progress_bar = (GtkWidget*)value_get_c_value(progress_bar_val);
-        show_text = value_get_boolean(args[1]);
+        show_text = value_get_boolean(args[1], ctx);
     } else if (args_len == 1 && kwargs_len(kwargs) == 1) {
         value_t progress_bar_val = args[0];
         progress_bar = (GtkWidget*)value_get_c_value(progress_bar_val);
-        show_text = value_get_boolean(kwargs_get_value(kwargs, "show-text", 9));
+        show_text = value_get_boolean(kwargs_get_value(kwargs, "show-text", 9), ctx);
     } else {
         char* who[] = {"progress-bar-show-text-set!"};
         size_t who_len[] = {26};
@@ -726,7 +726,7 @@ void lispy_gtk_image_from_icon_name_new(context_t ctx, value_t* args, size_t arg
         set_exception_value(ret_value, e);
         return;
     }
-    GtkWidget* image = gtk_image_new_from_icon_name(icon_name, GTK_ICON_SIZE_BUTTON);
+    GtkWidget* image = gtk_image_new_from_icon_name(icon_name);
     value_t image_val = value_new_c_value(image, lispy_gtk_free, ctx);
     set_return_value(ret_value, image_val);
     value_free_string(icon_name);
@@ -745,13 +745,13 @@ void lispy_gtk_image_from_gicon_new(context_t ctx, value_t* args, size_t args_le
         set_exception_value(ret_value, e);
         return;
     }
-    GtkWidget* image = gtk_image_new_from_gicon(icon, GTK_ICON_SIZE_BUTTON);
+    GtkWidget* image = gtk_image_new_from_gicon(icon);
     value_t image_val = value_new_c_value(image, lispy_gtk_free, ctx);
     set_return_value(ret_value, image_val);
 }
 
 void lispy_gtk_image_from_resource_new(context_t ctx, value_t* args, size_t args_len, kwargs_t kwargs, output_t ret_value) {
-    char* resource_path = NULL;
+    /*char* resource_path = NULL;
     if (args_len == 1) {
         resource_path = value_get_string(args[0], ctx);
     } else if (kwargs_len(kwargs) == 1) {
@@ -769,7 +769,7 @@ void lispy_gtk_image_from_resource_new(context_t ctx, value_t* args, size_t args
     GtkWidget* image = gtk_image_new_from_pixbuf(pixbuf);
     value_t image_val = value_new_c_value(image, lispy_gtk_free, ctx);
     set_return_value(ret_value, image_val);
-    value_free_string(resource_path);
+    value_free_string(resource_path);*/
 }
 
 void lispy_gtk_image_clear(context_t ctx, value_t* args, size_t args_len, kwargs_t kwargs, output_t ret_value) {
@@ -846,7 +846,7 @@ void lispy_gtk_image_icon_size_get(context_t ctx, value_t* args, size_t args_len
         return;
     }
     GtkIconSize icon_size = gtk_image_get_icon_size(GTK_IMAGE(image));
-    set_return_value(ret_value, value_new_int(icon_size));
+    set_return_value(ret_value, value_new_integer_from_ssize_t(icon_size));
 }
 
 void lispy_gtk_image_icon_size_set(context_t ctx, value_t* args, size_t args_len, kwargs_t kwargs, output_t ret_value) {
@@ -855,11 +855,11 @@ void lispy_gtk_image_icon_size_set(context_t ctx, value_t* args, size_t args_len
     if (args_len == 2) {
         value_t image_val = args[0];
         image = (GtkWidget*)value_get_c_value(image_val);
-        icon_size = value_get_int(args[1]);
+        icon_size = value_get_integer_as_i64(args[1]);
     } else if (args_len == 1 && kwargs_len(kwargs) == 1) {
         value_t image_val = args[0];
         image = (GtkWidget*)value_get_c_value(image_val);
-        icon_size = value_get_int(kwargs_get_value(kwargs, "icon-size", 9));
+        icon_size = value_get_integer_as_i64(kwargs_get_value(kwargs, "icon-size", 9));
     } else {
         char* who[] = {"image-icon-size-set!"};
         size_t who_len[] = {19};
@@ -886,26 +886,23 @@ void lispy_gtk_image_pixel_size_get(context_t ctx, value_t* args, size_t args_le
         set_exception_value(ret_value, e);
         return;
     }
-    int width, height;
-    gtk_image_get_pixel_size(GTK_IMAGE(image), &width, &height);
-    value_t width_val = value_new_int(width);
-    value_t height_val = value_new_int(height);
-    value_t size_val = value_new_list(ctx, 2, width_val, height_val);
+    int size = gtk_image_get_pixel_size(GTK_IMAGE(image));
+    value_t size_val = value_new_integer_from_ssize_t(size);
     set_return_value(ret_value, size_val);
 }
 
 void lispy_gtk_image_pixel_size_set(context_t ctx, value_t* args, size_t args_len, kwargs_t kwargs, output_t ret_value) {
-    GtkWidget* image = NULL;
+    /*GtkWidget* image = NULL;
     int width, height;
     if (args_len == 3) {
         value_t image_val = args[0];
         image = (GtkWidget*)value_get_c_value(image_val);
-        width = value_get_int(args[1]);
-        height = value_get_int(args[2]);
+        width = value_get_integer_as_i64(args[1]);
+        height = value_get_integer_as_i64(args[2]);
     } else if (args_len == 2 && kwargs_len(kwargs) == 2) {
         value_t image_val = args[0];
         image = (GtkWidget*)value_get_c_value(image_val);
-        width = value_get_int(args[1]);
+        width = value_get_integer_as_i64(args[1]);
         height = value_get_int(kwargs_get_value(kwargs, "height", 6));
     } else {
         char* who[] = {"image-pixel-size-set!"};
@@ -915,7 +912,7 @@ void lispy_gtk_image_pixel_size_set(context_t ctx, value_t* args, size_t args_le
         return;
     }
     gtk_image_set_pixel_size(GTK_IMAGE(image), width, height);
-    set_return_value(ret_value, value_new_nil());
+    set_return_value(ret_value, value_new_nil());*/
 }
 
 void lispy_gtk_image_from_file_set(context_t ctx, value_t* args, size_t args_len, kwargs_t kwargs, output_t ret_value) {
@@ -942,7 +939,7 @@ void lispy_gtk_image_from_file_set(context_t ctx, value_t* args, size_t args_len
 }
 
 void lispy_gtk_image_from_icon_name_set(context_t ctx, value_t* args, size_t args_len, kwargs_t kwargs, output_t ret_value) {
-    GtkWidget* image = NULL;
+    /*GtkWidget* image = NULL;
     char* icon_name;
     if (args_len == 2) {
         value_t image_val = args[0];
@@ -961,11 +958,11 @@ void lispy_gtk_image_from_icon_name_set(context_t ctx, value_t* args, size_t arg
     }
     gtk_image_set_from_icon_name(GTK_IMAGE(image), icon_name, GTK_ICON_SIZE_BUTTON);
     set_return_value(ret_value, value_new_nil());
-    value_free_string(icon_name);
+    value_free_string(icon_name);*/
 }
 
 void lispy_gtk_image_from_gicon_set(context_t ctx, value_t* args, size_t args_len, kwargs_t kwargs, output_t ret_value) {
-    GtkWidget* image = NULL;
+    /*GtkWidget* image = NULL;
     GIcon* icon;
     if (args_len == 2) {
         value_t image_val = args[0];
@@ -983,11 +980,11 @@ void lispy_gtk_image_from_gicon_set(context_t ctx, value_t* args, size_t args_le
         return;
     }
     gtk_image_set_from_gicon(GTK_IMAGE(image), icon, GTK_ICON_SIZE_BUTTON);
-    set_return_value(ret_value, value_new_nil());
+    set_return_value(ret_value, value_new_nil());*/
 }
 
 void lispy_gtk_image_from_resource_set(context_t ctx, value_t* args, size_t args_len, kwargs_t kwargs, output_t ret_value) {
-    GtkWidget* image = NULL;
+    /*GtkWidget* image = NULL;
     char* resource_path;
     if (args_len == 2) {
         value_t image_val = args[0];
@@ -1009,7 +1006,7 @@ void lispy_gtk_image_from_resource_set(context_t ctx, value_t* args, size_t args
     GdkPixbuf* pixbuf = gdk_pixbuf_new_from_stream(stream, NULL, NULL);
     gtk_image_set_from_pixbuf(GTK_IMAGE(image), pixbuf);
     set_return_value(ret_value, value_new_nil());
-    value_free_string(resource_path);
+    value_free_string(resource_path);*/
 }
 
 
@@ -1314,12 +1311,12 @@ void lispy_load_module(bindings_t bindings) {
     char* arg_names_gtk_progress_bar_fraction_set[] = {"progress-bar", "fraction"};
     size_t arg_names_len_gtk_progress_bar_fraction_set[] = {12, 8};
     fun_shape_t fun_shape_gtk_progress_bar_fraction_set = new_function_shape(arg_names_gtk_progress_bar_fraction_set, 2, arg_names_len_gtk_progress_bar_fraction_set);
-    bindings_add_binding(bindings, "lispy_gtk_progress_bar_fraction_set", 34, "progress-bar-fraction-set!", 26, fun_shape_gtk_progress_bar_fraction_set);
+    bindings_add_binding(bindings, "lispy_gtk_progress_bar_fraction_set", 35, "progress-bar-fraction-set!", 26, fun_shape_gtk_progress_bar_fraction_set);
 
     char* arg_names_gtk_progress_bar_fraction_get[] = {"progress-bar"};
     size_t arg_names_len_gtk_progress_bar_fraction_get[] = {12};
     fun_shape_t fun_shape_gtk_progress_bar_fraction_get = new_function_shape(arg_names_gtk_progress_bar_fraction_get, 1, arg_names_len_gtk_progress_bar_fraction_get);
-    bindings_add_binding(bindings, "lispy_gtk_progress_bar_fraction_get", 34, "progress-bar-fraction-get", 25, fun_shape_gtk_progress_bar_fraction_get);
+    bindings_add_binding(bindings, "lispy_gtk_progress_bar_fraction_get", 35, "progress-bar-fraction-get", 25, fun_shape_gtk_progress_bar_fraction_get);
 
     char* arg_names_gtk_progress_bar_pulse[] = {"progress-bar"};
     size_t arg_names_len_gtk_progress_bar_pulse[] = {12};

@@ -45,7 +45,13 @@ pub fn walk_through(sexpr: &Sexpr, context: &mut Context, module_name: &Vec<Stri
                 Atom::Symbol(s) => {
                     match context.get(&s, module_name) {
                         Some(value) => Ok(Some(value.clone())),
-                        None => Err(Box::new(Exception::new(s, "not bound", context))),
+                        None => {
+			    let new_path = module_name.iter().chain(s.iter()).map(|s| s.clone()).collect();
+			    match context.get(&new_path, module_name) {
+				Some(value) => Ok(Some(value.clone())),
+				None => Err(Box::new(Exception::new(&new_path, "not bound", context)))
+			    }
+			},
                     }
                 }
                 Atom::QuotedSymbol(s) => {
@@ -213,7 +219,7 @@ fn walk_through_set(list: &Vec<Sexpr>, context: &mut Context, module_name: &Vec<
 	    let value = walk_through(value, context, module_name)?;
 	    match value {
 		Some(value) => {
-		    context.rebind(&name[0], value);
+		    context.rebind(&name, value);
 		    Ok(None)
 		}
 		None => {
@@ -267,6 +273,7 @@ fn walk_through_begin(list: &Vec<Sexpr>, context: &mut Context, module_name: &Ve
 }
 
 fn walk_through_import(list: &Vec<Sexpr>, context: &mut Context, module_name: &Vec<String>) -> InterpreterResult {
+    println!("{:?}", list);
     match list.as_slice() {
 	[_, path, name] => {
 	    let path = walk_through(path, context, module_name)?.ok_or(Box::new(Exception::new(&vec!["import"], "not a string", context)))?;
@@ -301,7 +308,13 @@ fn walk_through_import(list: &Vec<Sexpr>, context: &mut Context, module_name: &V
 		_ => {}
 	    }
 
-	    context.add_module(&name, module);
+	    let mut path: Vec<String> = if module_name[0].as_str() == "main" {
+		Vec::new()
+	    } else {
+		module_name.iter().map(|s| s.clone()).collect()
+	    };
+	    path.push(name.clone());
+	    context.add_module_with_path(&path, module);
 	    Ok(None)
 	}
 	[_, path] => {
