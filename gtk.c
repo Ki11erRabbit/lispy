@@ -448,17 +448,18 @@ void lispy_gtk_level_bar_max_value_get(context_t ctx, value_t* args, size_t args
 }
 
 void lispy_gtk_level_bar_add_offset_value(context_t ctx, value_t* args, size_t args_len, kwargs_t kwargs, output_t ret_value) {
-    /*GtkWidget* level_bar = NULL;
-    double name, value;
+    GtkWidget* level_bar = NULL;
+    char* name;
+    double value;
     if (args_len == 3) {
         value_t level_bar_val = args[0];
         level_bar = (GtkWidget*)value_get_c_value(level_bar_val);
-        name = value_get_float(args[1], ctx);
+        name = value_get_string(args[1], ctx);
         value = value_get_float(args[2], ctx);
     } else if (args_len == 2 && kwargs_len(kwargs) == 1) {
         value_t level_bar_val = args[0];
         level_bar = (GtkWidget*)value_get_c_value(level_bar_val);
-        name = value_get_float(args[1], ctx);
+        name = value_get_string(args[1], ctx);
         value = value_get_float(kwargs_get_value(kwargs, "value", 5), ctx);
     } else {
         char* who[] = {"level-bar-add-offset-value!"};
@@ -468,20 +469,21 @@ void lispy_gtk_level_bar_add_offset_value(context_t ctx, value_t* args, size_t a
         return;
     }
     gtk_level_bar_add_offset_value(GTK_LEVEL_BAR(level_bar), name, value);
-    set_return_value(ret_value, value_new_nil());*/
+    set_return_value(ret_value, value_new_nil());
+    value_free_string(name);
 }
 
 void lispy_gtk_level_bar_remove_offset_value(context_t ctx, value_t* args, size_t args_len, kwargs_t kwargs, output_t ret_value) {
-    /*GtkWidget* level_bar = NULL;
-    double name;
+    GtkWidget* level_bar = NULL;
+    char* name;
     if (args_len == 2) {
         value_t level_bar_val = args[0];
         level_bar = (GtkWidget*)value_get_c_value(level_bar_val);
-        name = value_get_float(args[1], ctx);
+        name = value_get_string(args[1], ctx);
     } else if (args_len == 1 && kwargs_len(kwargs) == 1) {
         value_t level_bar_val = args[0];
         level_bar = (GtkWidget*)value_get_c_value(level_bar_val);
-        name = value_get_float(kwargs_get_value(kwargs, "name", 4), ctx);
+        name = value_get_string(kwargs_get_value(kwargs, "name", 4), ctx);
     } else {
         char* who[] = {"level-bar-remove-offset-value!"};
         size_t who_len[] = {30};
@@ -490,7 +492,7 @@ void lispy_gtk_level_bar_remove_offset_value(context_t ctx, value_t* args, size_
         return;
     }
     gtk_level_bar_remove_offset_value(GTK_LEVEL_BAR(level_bar), name);
-    set_return_value(ret_value, value_new_nil());*/
+    set_return_value(ret_value, value_new_nil());
 }
 
 /* Progress Bar */
@@ -499,6 +501,130 @@ void lispy_gtk_progress_bar_new(context_t ctx, value_t* args, size_t args_len, k
     GtkWidget* progress_bar = gtk_progress_bar_new();
     value_t progress_bar_val = value_new_c_value(progress_bar, lispy_gtk_free, ctx);
     set_return_value(ret_value, progress_bar_val);
+}
+
+void lispy_gtk_progress_bar_fraction_set(context_t ctx, value_t* args, size_t args_len, kwargs_t kwargs, output_t ret_value) {
+    GtkWidget* progress_bar = NULL;
+    double fraction;
+    if (args_len == 2) {
+        value_t progress_bar_val = args[0];
+        progress_bar = (GtkWidget*)value_get_c_value(progress_bar_val);
+        fraction = value_get_float(args[1], ctx);
+    } else if (args_len == 1 && kwargs_len(kwargs) == 1) {
+        value_t progress_bar_val = args[0];
+        progress_bar = (GtkWidget*)value_get_c_value(progress_bar_val);
+        fraction = value_get_float(kwargs_get_value(kwargs, "fraction", 8), ctx);
+    } else {
+        char* who[] = {"progress-bar-fraction-set!"};
+        size_t who_len[] = {24};
+        exception_t e = exception_new(who, 1, who_len, "Invalid number of arguments", 27, ctx);
+        set_exception_value(ret_value, e);
+        return;
+    }
+    gtk_progress_bar_set_fraction(GTK_PROGRESS_BAR(progress_bar), fraction);
+    set_return_value(ret_value, value_new_nil());
+}
+
+void lispy_gtk_progress_bar_fraction_get(context_t ctx, value_t* args, size_t args_len, kwargs_t kwargs, output_t ret_value) {
+    GtkWidget* progress_bar = NULL;
+    if (args_len == 1) {
+        value_t progress_bar_val = args[0];
+        progress_bar = (GtkWidget*)value_get_c_value(progress_bar_val);
+    } else if (kwargs_len(kwargs) == 1) {
+        value_t progress_bar_val = kwargs_get_value(kwargs, "progress-bar", 12);
+        progress_bar = (GtkWidget*)value_get_c_value(progress_bar_val);
+    } else {
+        char* who[] = {"progress-bar-fraction-get"};
+        size_t who_len[] = {24};
+        exception_t e = exception_new(who, 1, who_len, "Invalid number of arguments", 27, ctx);
+        set_exception_value(ret_value, e);
+        return;
+    }
+    double fraction = gtk_progress_bar_get_fraction(GTK_PROGRESS_BAR(progress_bar));
+    set_return_value(ret_value, value_new_float(fraction));
+}
+
+void lispy_gtk_progress_bar_pulse(context_t ctx, value_t* args, size_t args_len, kwargs_t kwargs, output_t ret_value) {
+    GtkWidget* progress_bar = NULL;
+    if (args_len == 1) {
+        value_t progress_bar_val = args[0];
+        progress_bar = (GtkWidget*)value_get_c_value(progress_bar_val);
+    } else if (kwargs_len(kwargs) == 1) {
+        value_t progress_bar_val = kwargs_get_value(kwargs, "progress-bar", 12);
+        progress_bar = (GtkWidget*)value_get_c_value(progress_bar_val);
+    } else {
+        char* who[] = {"progress-bar-pulse"};
+        size_t who_len[] = {18};
+        exception_t e = exception_new(who, 1, who_len, "Invalid number of arguments", 27, ctx);
+        set_exception_value(ret_value, e);
+        return;
+    }
+    gtk_progress_bar_pulse(GTK_PROGRESS_BAR(progress_bar));
+    set_return_value(ret_value, value_new_nil());
+}
+
+void lispy_gtk_progress_bar_text_set(context_t ctx, value_t* args, size_t args_len, kwargs_t kwargs, output_t ret_value) {
+    GtkWidget* progress_bar = NULL;
+    char* text;
+    if (args_len == 2) {
+        value_t progress_bar_val = args[0];
+        progress_bar = (GtkWidget*)value_get_c_value(progress_bar_val);
+        text = value_get_string(args[1], ctx);
+    } else if (args_len == 1 && kwargs_len(kwargs) == 1) {
+        value_t progress_bar_val = args[0];
+        progress_bar = (GtkWidget*)value_get_c_value(progress_bar_val);
+        text = value_get_string(kwargs_get_value(kwargs, "text", 4), ctx);
+    } else {
+        char* who[] = {"progress-bar-text-set!"};
+        size_t who_len[] = {20};
+        exception_t e = exception_new(who, 1, who_len, "Invalid number of arguments", 27, ctx);
+        set_exception_value(ret_value, e);
+        return;
+    }
+    gtk_progress_bar_set_text(GTK_PROGRESS_BAR(progress_bar), text);
+    set_return_value(ret_value, value_new_nil());
+    value_free_string(text);
+}
+
+void lispy_gtk_progress_bar_text_get(context_t ctx, value_t* args, size_t args_len, kwargs_t kwargs, output_t ret_value) {
+    GtkWidget* progress_bar = NULL;
+    if (args_len == 1) {
+        value_t progress_bar_val = args[0];
+        progress_bar = (GtkWidget*)value_get_c_value(progress_bar_val);
+    } else if (kwargs_len(kwargs) == 1) {
+        value_t progress_bar_val = kwargs_get_value(kwargs, "progress-bar", 12);
+        progress_bar = (GtkWidget*)value_get_c_value(progress_bar_val);
+    } else {
+        char* who[] = {"progress-bar-text-get"};
+        size_t who_len[] = {20};
+        exception_t e = exception_new(who, 1, who_len, "Invalid number of arguments", 27, ctx);
+        set_exception_value(ret_value, e);
+        return;
+    }
+    const char* text = gtk_progress_bar_get_text(GTK_PROGRESS_BAR(progress_bar));
+    set_return_value(ret_value, value_new_string(text, strlen(text), ctx));
+}
+
+void lispy_gtk_progress_bar_show_text_set(context_t ctx, value_t* args, size_t args_len, kwargs_t kwargs, output_t ret_value) {
+    GtkWidget* progress_bar = NULL;
+    bool show_text;
+    if (args_len == 2) {
+        value_t progress_bar_val = args[0];
+        progress_bar = (GtkWidget*)value_get_c_value(progress_bar_val);
+        show_text = value_get_boolean(args[1]);
+    } else if (args_len == 1 && kwargs_len(kwargs) == 1) {
+        value_t progress_bar_val = args[0];
+        progress_bar = (GtkWidget*)value_get_c_value(progress_bar_val);
+        show_text = value_get_boolean(kwargs_get_value(kwargs, "show-text", 9));
+    } else {
+        char* who[] = {"progress-bar-show-text-set!"};
+        size_t who_len[] = {26};
+        exception_t e = exception_new(who, 1, who_len, "Invalid number of arguments", 27, ctx);
+        set_exception_value(ret_value, e);
+        return;
+    }
+    gtk_progress_bar_set_show_text(GTK_PROGRESS_BAR(progress_bar), show_text);
+    set_return_value(ret_value, value_new_nil());
 }
 
 
@@ -515,6 +641,377 @@ void lispy_gtk_scroll_bar_horizontal_new(context_t ctx, value_t* args, size_t ar
     value_t scroll_bar_val = value_new_c_value(scroll_bar, lispy_gtk_free, ctx);
     set_return_value(ret_value, scroll_bar_val);
 }
+
+void lispy_gtk_scroll_bar_adjustment_get(context_t ctx, value_t* args, size_t args_len, kwargs_t kwargs, output_t ret_value) {
+    GtkWidget* scroll_bar = NULL;
+    if (args_len == 1) {
+        value_t scroll_bar_val = args[0];
+        scroll_bar = (GtkWidget*)value_get_c_value(scroll_bar_val);
+    } else if (kwargs_len(kwargs) == 1) {
+        value_t scroll_bar_val = kwargs_get_value(kwargs, "scroll-bar", 10);
+        scroll_bar = (GtkWidget*)value_get_c_value(scroll_bar_val);
+    } else {
+        char* who[] = {"scroll-bar-adjustment-get"};
+        size_t who_len[] = {26};
+        exception_t e = exception_new(who, 1, who_len, "Invalid number of arguments", 27, ctx);
+        set_exception_value(ret_value, e);
+        return;
+    }
+    GtkAdjustment* adjustment = gtk_scrollbar_get_adjustment(GTK_SCROLLBAR(scroll_bar));
+    value_t adjustment_val = value_new_c_value(adjustment, NULL, ctx);
+    set_return_value(ret_value, adjustment_val);
+}
+
+void lispy_gtk_scroll_bar_adjustment_set(context_t ctx, value_t* args, size_t args_len, kwargs_t kwargs, output_t ret_value) {
+    GtkWidget* scroll_bar = NULL;
+    GtkAdjustment* adjustment = NULL;
+    if (args_len == 2) {
+        value_t scroll_bar_val = args[0];
+        scroll_bar = (GtkWidget*)value_get_c_value(scroll_bar_val);
+        value_t adjustment_val = args[1];
+        adjustment = (GtkAdjustment*)value_get_c_value(adjustment_val);
+    } else if (args_len == 1 && kwargs_len(kwargs) == 1) {
+        value_t scroll_bar_val = args[0];
+        scroll_bar = (GtkWidget*)value_get_c_value(scroll_bar_val);
+        value_t adjustment_val = kwargs_get_value(kwargs, "adjustment", 10);
+        adjustment = (GtkAdjustment*)value_get_c_value(adjustment_val);
+    } else {
+        char* who[] = {"scroll-bar-adjustment-set!"};
+        size_t who_len[] = {26};
+        exception_t e = exception_new(who, 1, who_len, "Invalid number of arguments", 27, ctx);
+        set_exception_value(ret_value, e);
+        return;
+    }
+    gtk_scrollbar_set_adjustment(GTK_SCROLLBAR(scroll_bar), adjustment);
+    set_return_value(ret_value, value_new_nil());
+}
+
+/* Image */
+
+void lispy_gtk_image_new(context_t ctx, value_t* args, size_t args_len, kwargs_t kwargs, output_t ret_value) {
+    GtkWidget* image = gtk_image_new();
+    value_t image_val = value_new_c_value(image, lispy_gtk_free, ctx);
+    set_return_value(ret_value, image_val);
+}
+
+void lispy_gtk_image_from_file_new(context_t ctx, value_t* args, size_t args_len, kwargs_t kwargs, output_t ret_value) {
+    char* filename = NULL;
+    if (args_len == 1) {
+        filename = value_get_string(args[0], ctx);
+    } else if (kwargs_len(kwargs) == 1) {
+        filename = value_get_string(kwargs_get_value(kwargs, "filename", 8), ctx);
+    } else {
+        char* who[] = {"image-from-file-new"};
+        size_t who_len[] = {19};
+        exception_t e = exception_new(who, 1, who_len, "Invalid number of arguments", 27, ctx);
+        set_exception_value(ret_value, e);
+        return;
+    }
+    GtkWidget* image = gtk_image_new_from_file(filename);
+    value_t image_val = value_new_c_value(image, lispy_gtk_free, ctx);
+    set_return_value(ret_value, image_val);
+    value_free_string(filename);
+}
+
+void lispy_gtk_image_from_icon_name_new(context_t ctx, value_t* args, size_t args_len, kwargs_t kwargs, output_t ret_value) {
+    char* icon_name = NULL;
+    if (args_len == 1) {
+        icon_name = value_get_string(args[0], ctx);
+    } else if (kwargs_len(kwargs) == 1) {
+        icon_name = value_get_string(kwargs_get_value(kwargs, "icon-name", 9), ctx);
+    } else {
+        char* who[] = {"image-from-icon-name-new"};
+        size_t who_len[] = {23};
+        exception_t e = exception_new(who, 1, who_len, "Invalid number of arguments", 27, ctx);
+        set_exception_value(ret_value, e);
+        return;
+    }
+    GtkWidget* image = gtk_image_new_from_icon_name(icon_name, GTK_ICON_SIZE_BUTTON);
+    value_t image_val = value_new_c_value(image, lispy_gtk_free, ctx);
+    set_return_value(ret_value, image_val);
+    value_free_string(icon_name);
+}
+
+void lispy_gtk_image_from_gicon_new(context_t ctx, value_t* args, size_t args_len, kwargs_t kwargs, output_t ret_value) {
+    GIcon* icon = NULL;
+    if (args_len == 1) {
+        icon = (GIcon*)value_get_c_value(args[0]);
+    } else if (kwargs_len(kwargs) == 1) {
+        icon = (GIcon*)value_get_c_value(kwargs_get_value(kwargs, "icon", 4));
+    } else {
+        char* who[] = {"image-from-gicon-new"};
+        size_t who_len[] = {20};
+        exception_t e = exception_new(who, 1, who_len, "Invalid number of arguments", 27, ctx);
+        set_exception_value(ret_value, e);
+        return;
+    }
+    GtkWidget* image = gtk_image_new_from_gicon(icon, GTK_ICON_SIZE_BUTTON);
+    value_t image_val = value_new_c_value(image, lispy_gtk_free, ctx);
+    set_return_value(ret_value, image_val);
+}
+
+void lispy_gtk_image_from_resource_new(context_t ctx, value_t* args, size_t args_len, kwargs_t kwargs, output_t ret_value) {
+    char* resource_path = NULL;
+    if (args_len == 1) {
+        resource_path = value_get_string(args[0], ctx);
+    } else if (kwargs_len(kwargs) == 1) {
+        resource_path = value_get_string(kwargs_get_value(kwargs, "resource-path", 12), ctx);
+    } else {
+        char* who[] = {"image-from-resource-new"};
+        size_t who_len[] = {24};
+        exception_t e = exception_new(who, 1, who_len, "Invalid number of arguments", 27, ctx);
+        set_exception_value(ret_value, e);
+        return;
+    }
+    GBytes* bytes = g_resources_lookup_data(resource_path, 0, NULL);
+    GInputStream* stream = g_memory_input_stream_new_from_bytes(bytes);
+    GdkPixbuf* pixbuf = gdk_pixbuf_new_from_stream(stream, NULL, NULL);
+    GtkWidget* image = gtk_image_new_from_pixbuf(pixbuf);
+    value_t image_val = value_new_c_value(image, lispy_gtk_free, ctx);
+    set_return_value(ret_value, image_val);
+    value_free_string(resource_path);
+}
+
+void lispy_gtk_image_clear(context_t ctx, value_t* args, size_t args_len, kwargs_t kwargs, output_t ret_value) {
+    GtkWidget* image = NULL;
+    if (args_len == 1) {
+        value_t image_val = args[0];
+        image = (GtkWidget*)value_get_c_value(image_val);
+    } else if (kwargs_len(kwargs) == 1) {
+        value_t image_val = kwargs_get_value(kwargs, "image", 5);
+        image = (GtkWidget*)value_get_c_value(image_val);
+    } else {
+        char* who[] = {"image-clear"};
+        size_t who_len[] = {12};
+        exception_t e = exception_new(who, 1, who_len, "Invalid number of arguments", 27, ctx);
+        set_exception_value(ret_value, e);
+        return;
+    }
+    gtk_image_clear(GTK_IMAGE(image));
+    set_return_value(ret_value, value_new_nil());
+}
+
+void lispy_gtk_image_get_icon_name(context_t ctx, value_t* args, size_t args_len, kwargs_t kwargs, output_t ret_value) {
+    GtkWidget* image = NULL;
+    if (args_len == 1) {
+        value_t image_val = args[0];
+        image = (GtkWidget*)value_get_c_value(image_val);
+    } else if (kwargs_len(kwargs) == 1) {
+        value_t image_val = kwargs_get_value(kwargs, "image", 5);
+        image = (GtkWidget*)value_get_c_value(image_val);
+    } else {
+        char* who[] = {"image-get-icon-name"};
+        size_t who_len[] = {19};
+        exception_t e = exception_new(who, 1, who_len, "Invalid number of arguments", 27, ctx);
+        set_exception_value(ret_value, e);
+        return;
+    }
+    const char* icon_name = gtk_image_get_icon_name(GTK_IMAGE(image));
+    set_return_value(ret_value, value_new_string(icon_name, strlen(icon_name), ctx));
+}
+
+void lispy_gtk_image_get_gicon(context_t ctx, value_t* args, size_t args_len, kwargs_t kwargs, output_t ret_value) {
+    GtkWidget* image = NULL;
+    if (args_len == 1) {
+        value_t image_val = args[0];
+        image = (GtkWidget*)value_get_c_value(image_val);
+    } else if (kwargs_len(kwargs) == 1) {
+        value_t image_val = kwargs_get_value(kwargs, "image", 5);
+        image = (GtkWidget*)value_get_c_value(image_val);
+    } else {
+        char* who[] = {"image-get-gicon"};
+        size_t who_len[] = {15};
+        exception_t e = exception_new(who, 1, who_len, "Invalid number of arguments", 27, ctx);
+        set_exception_value(ret_value, e);
+        return;
+    }
+    GIcon* icon = gtk_image_get_gicon(GTK_IMAGE(image));
+    value_t icon_val = value_new_c_value(icon, NULL, ctx);
+    set_return_value(ret_value, icon_val);
+}
+
+void lispy_gtk_image_icon_size_get(context_t ctx, value_t* args, size_t args_len, kwargs_t kwargs, output_t ret_value) {
+    GtkWidget* image = NULL;
+    if (args_len == 1) {
+        value_t image_val = args[0];
+        image = (GtkWidget*)value_get_c_value(image_val);
+    } else if (kwargs_len(kwargs) == 1) {
+        value_t image_val = kwargs_get_value(kwargs, "image", 5);
+        image = (GtkWidget*)value_get_c_value(image_val);
+    } else {
+        char* who[] = {"image-icon-size-get"};
+        size_t who_len[] = {19};
+        exception_t e = exception_new(who, 1, who_len, "Invalid number of arguments", 27, ctx);
+        set_exception_value(ret_value, e);
+        return;
+    }
+    GtkIconSize icon_size = gtk_image_get_icon_size(GTK_IMAGE(image));
+    set_return_value(ret_value, value_new_int(icon_size));
+}
+
+void lispy_gtk_image_icon_size_set(context_t ctx, value_t* args, size_t args_len, kwargs_t kwargs, output_t ret_value) {
+    GtkWidget* image = NULL;
+    GtkIconSize icon_size;
+    if (args_len == 2) {
+        value_t image_val = args[0];
+        image = (GtkWidget*)value_get_c_value(image_val);
+        icon_size = value_get_int(args[1]);
+    } else if (args_len == 1 && kwargs_len(kwargs) == 1) {
+        value_t image_val = args[0];
+        image = (GtkWidget*)value_get_c_value(image_val);
+        icon_size = value_get_int(kwargs_get_value(kwargs, "icon-size", 9));
+    } else {
+        char* who[] = {"image-icon-size-set!"};
+        size_t who_len[] = {19};
+        exception_t e = exception_new(who, 1, who_len, "Invalid number of arguments", 27, ctx);
+        set_exception_value(ret_value, e);
+        return;
+    }
+    gtk_image_set_icon_size(GTK_IMAGE(image), icon_size);
+    set_return_value(ret_value, value_new_nil());
+}
+
+void lispy_gtk_image_pixel_size_get(context_t ctx, value_t* args, size_t args_len, kwargs_t kwargs, output_t ret_value) {
+    GtkWidget* image = NULL;
+    if (args_len == 1) {
+        value_t image_val = args[0];
+        image = (GtkWidget*)value_get_c_value(image_val);
+    } else if (kwargs_len(kwargs) == 1) {
+        value_t image_val = kwargs_get_value(kwargs, "image", 5);
+        image = (GtkWidget*)value_get_c_value(image_val);
+    } else {
+        char* who[] = {"image-pixel-size-get"};
+        size_t who_len[] = {20};
+        exception_t e = exception_new(who, 1, who_len, "Invalid number of arguments", 27, ctx);
+        set_exception_value(ret_value, e);
+        return;
+    }
+    int width, height;
+    gtk_image_get_pixel_size(GTK_IMAGE(image), &width, &height);
+    value_t width_val = value_new_int(width);
+    value_t height_val = value_new_int(height);
+    value_t size_val = value_new_list(ctx, 2, width_val, height_val);
+    set_return_value(ret_value, size_val);
+}
+
+void lispy_gtk_image_pixel_size_set(context_t ctx, value_t* args, size_t args_len, kwargs_t kwargs, output_t ret_value) {
+    GtkWidget* image = NULL;
+    int width, height;
+    if (args_len == 3) {
+        value_t image_val = args[0];
+        image = (GtkWidget*)value_get_c_value(image_val);
+        width = value_get_int(args[1]);
+        height = value_get_int(args[2]);
+    } else if (args_len == 2 && kwargs_len(kwargs) == 2) {
+        value_t image_val = args[0];
+        image = (GtkWidget*)value_get_c_value(image_val);
+        width = value_get_int(args[1]);
+        height = value_get_int(kwargs_get_value(kwargs, "height", 6));
+    } else {
+        char* who[] = {"image-pixel-size-set!"};
+        size_t who_len[] = {20};
+        exception_t e = exception_new(who, 1, who_len, "Invalid number of arguments", 27, ctx);
+        set_exception_value(ret_value, e);
+        return;
+    }
+    gtk_image_set_pixel_size(GTK_IMAGE(image), width, height);
+    set_return_value(ret_value, value_new_nil());
+}
+
+void lispy_gtk_image_from_file_set(context_t ctx, value_t* args, size_t args_len, kwargs_t kwargs, output_t ret_value) {
+    GtkWidget* image = NULL;
+    char* filename;
+    if (args_len == 2) {
+        value_t image_val = args[0];
+        image = (GtkWidget*)value_get_c_value(image_val);
+        filename = value_get_string(args[1], ctx);
+    } else if (args_len == 1 && kwargs_len(kwargs) == 1) {
+        value_t image_val = args[0];
+        image = (GtkWidget*)value_get_c_value(image_val);
+        filename = value_get_string(kwargs_get_value(kwargs, "filename", 8), ctx);
+    } else {
+        char* who[] = {"image-from-file-set!"};
+        size_t who_len[] = {20};
+        exception_t e = exception_new(who, 1, who_len, "Invalid number of arguments", 27, ctx);
+        set_exception_value(ret_value, e);
+        return;
+    }
+    gtk_image_set_from_file(GTK_IMAGE(image), filename);
+    set_return_value(ret_value, value_new_nil());
+    value_free_string(filename);
+}
+
+void lispy_gtk_image_from_icon_name_set(context_t ctx, value_t* args, size_t args_len, kwargs_t kwargs, output_t ret_value) {
+    GtkWidget* image = NULL;
+    char* icon_name;
+    if (args_len == 2) {
+        value_t image_val = args[0];
+        image = (GtkWidget*)value_get_c_value(image_val);
+        icon_name = value_get_string(args[1], ctx);
+    } else if (args_len == 1 && kwargs_len(kwargs) == 1) {
+        value_t image_val = args[0];
+        image = (GtkWidget*)value_get_c_value(image_val);
+        icon_name = value_get_string(kwargs_get_value(kwargs, "icon-name", 9), ctx);
+    } else {
+        char* who[] = {"image-from-icon-name-set!"};
+        size_t who_len[] = {24};
+        exception_t e = exception_new(who, 1, who_len, "Invalid number of arguments", 27, ctx);
+        set_exception_value(ret_value, e);
+        return;
+    }
+    gtk_image_set_from_icon_name(GTK_IMAGE(image), icon_name, GTK_ICON_SIZE_BUTTON);
+    set_return_value(ret_value, value_new_nil());
+    value_free_string(icon_name);
+}
+
+void lispy_gtk_image_from_gicon_set(context_t ctx, value_t* args, size_t args_len, kwargs_t kwargs, output_t ret_value) {
+    GtkWidget* image = NULL;
+    GIcon* icon;
+    if (args_len == 2) {
+        value_t image_val = args[0];
+        image = (GtkWidget*)value_get_c_value(image_val);
+        icon = (GIcon*)value_get_c_value(args[1]);
+    } else if (args_len == 1 && kwargs_len(kwargs) == 1) {
+        value_t image_val = args[0];
+        image = (GtkWidget*)value_get_c_value(image_val);
+        icon = (GIcon*)value_get_c_value(kwargs_get_value(kwargs, "icon", 4));
+    } else {
+        char* who[] = {"image-from-gicon-set!"};
+        size_t who_len[] = {20};
+        exception_t e = exception_new(who, 1, who_len, "Invalid number of arguments", 27, ctx);
+        set_exception_value(ret_value, e);
+        return;
+    }
+    gtk_image_set_from_gicon(GTK_IMAGE(image), icon, GTK_ICON_SIZE_BUTTON);
+    set_return_value(ret_value, value_new_nil());
+}
+
+void lispy_gtk_image_from_resource_set(context_t ctx, value_t* args, size_t args_len, kwargs_t kwargs, output_t ret_value) {
+    GtkWidget* image = NULL;
+    char* resource_path;
+    if (args_len == 2) {
+        value_t image_val = args[0];
+        image = (GtkWidget*)value_get_c_value(image_val);
+        resource_path = value_get_string(args[1], ctx);
+    } else if (args_len == 1 && kwargs_len(kwargs) == 1) {
+        value_t image_val = args[0];
+        image = (GtkWidget*)value_get_c_value(image_val);
+        resource_path = value_get_string(kwargs_get_value(kwargs, "resource-path", 12), ctx);
+    } else {
+        char* who[] = {"image-from-resource-set!"};
+        size_t who_len[] = {24};
+        exception_t e = exception_new(who, 1, who_len, "Invalid number of arguments", 27, ctx);
+        set_exception_value(ret_value, e);
+        return;
+    }
+    GBytes* bytes = g_resources_lookup_data(resource_path, 0, NULL);
+    GInputStream* stream = g_memory_input_stream_new_from_bytes(bytes);
+    GdkPixbuf* pixbuf = gdk_pixbuf_new_from_stream(stream, NULL, NULL);
+    gtk_image_set_from_pixbuf(GTK_IMAGE(image), pixbuf);
+    set_return_value(ret_value, value_new_nil());
+    value_free_string(resource_path);
+}
+
 
 
 /* Label Button */
@@ -721,8 +1218,10 @@ void lispy_load_module(bindings_t bindings) {
   size_t arg_names_len_gtk_window_present[] = {6};
   fun_shape_t fun_shape_gtk_window_present = new_function_shape(arg_names_gtk_window_present, 1, arg_names_len_gtk_window_present);
   bindings_add_binding(bindings, "lispy_gtk_window_present", 24, "window-present", 14, fun_shape_gtk_window_present);
+    // Display Widgets
 
-
+    /* Label */
+  
     char* arg_names_gtk_label_new[] = {"text"};
     size_t arg_names_len_gtk_label_new[] = {4};
     fun_shape_t fun_shape_gtk_label_new = new_function_shape(arg_names_gtk_label_new, 1, arg_names_len_gtk_label_new);
@@ -743,6 +1242,7 @@ void lispy_load_module(bindings_t bindings) {
     fun_shape_t fun_shape_gtk_label_yalign_set = new_function_shape(arg_names_gtk_label_yalign_set, 2, arg_names_len_gtk_label_yalign_set);
     bindings_add_binding(bindings, "lispy_gtk_label_yalign_set", 27, "label-yalign-set!", 17, fun_shape_gtk_label_yalign_set);
 
+    /* Spinner */
     char* arg_names_gtk_spinner_new[] = {};
     size_t arg_names_len_gtk_spinner_new[] = {};
     fun_shape_t fun_shape_gtk_spinner_new = new_function_shape(arg_names_gtk_spinner_new, 0, arg_names_len_gtk_spinner_new);
@@ -758,6 +1258,8 @@ void lispy_load_module(bindings_t bindings) {
     fun_shape_t fun_shape_gtk_spinner_stop = new_function_shape(arg_names_gtk_spinner_stop, 1, arg_names_len_gtk_spinner_stop);
     bindings_add_binding(bindings, "lispy_gtk_spinner_stop", 23, "spinner-stop", 12, fun_shape_gtk_spinner_stop);
 
+    
+    /* Level Bar */
     char* arg_names_gtk_level_bar_new[] = {};
     size_t arg_names_len_gtk_level_bar_new[] = {};
     fun_shape_t fun_shape_gtk_level_bar_new = new_function_shape(arg_names_gtk_level_bar_new, 0, arg_names_len_gtk_level_bar_new);
@@ -803,12 +1305,44 @@ void lispy_load_module(bindings_t bindings) {
     fun_shape_t fun_shape_gtk_level_bar_remove_offset_value = new_function_shape(arg_names_gtk_level_bar_remove_offset_value, 2, arg_names_len_gtk_level_bar_remove_offset_value);
     bindings_add_binding(bindings, "lispy_gtk_level_bar_remove_offset_value", 39, "level-bar-remove-offset-value", 29, fun_shape_gtk_level_bar_remove_offset_value);
 
+    /* Progress Bar */
     char* arg_names_gtk_progress_bar_new[] = {};
     size_t arg_names_len_gtk_progress_bar_new[] = {};
     fun_shape_t fun_shape_gtk_progress_bar_new = new_function_shape(arg_names_gtk_progress_bar_new, 0, arg_names_len_gtk_progress_bar_new);
     bindings_add_binding(bindings, "lispy_gtk_progress_bar_new", 26, "progress-bar-new", 16, fun_shape_gtk_progress_bar_new);
 
+    char* arg_names_gtk_progress_bar_fraction_set[] = {"progress-bar", "fraction"};
+    size_t arg_names_len_gtk_progress_bar_fraction_set[] = {12, 8};
+    fun_shape_t fun_shape_gtk_progress_bar_fraction_set = new_function_shape(arg_names_gtk_progress_bar_fraction_set, 2, arg_names_len_gtk_progress_bar_fraction_set);
+    bindings_add_binding(bindings, "lispy_gtk_progress_bar_fraction_set", 34, "progress-bar-fraction-set!", 26, fun_shape_gtk_progress_bar_fraction_set);
 
+    char* arg_names_gtk_progress_bar_fraction_get[] = {"progress-bar"};
+    size_t arg_names_len_gtk_progress_bar_fraction_get[] = {12};
+    fun_shape_t fun_shape_gtk_progress_bar_fraction_get = new_function_shape(arg_names_gtk_progress_bar_fraction_get, 1, arg_names_len_gtk_progress_bar_fraction_get);
+    bindings_add_binding(bindings, "lispy_gtk_progress_bar_fraction_get", 34, "progress-bar-fraction-get", 25, fun_shape_gtk_progress_bar_fraction_get);
+
+    char* arg_names_gtk_progress_bar_pulse[] = {"progress-bar"};
+    size_t arg_names_len_gtk_progress_bar_pulse[] = {12};
+    fun_shape_t fun_shape_gtk_progress_bar_pulse = new_function_shape(arg_names_gtk_progress_bar_pulse, 1, arg_names_len_gtk_progress_bar_pulse);
+    bindings_add_binding(bindings, "lispy_gtk_progress_bar_pulse", 28, "progress-bar-pulse", 18, fun_shape_gtk_progress_bar_pulse);
+
+    char* arg_names_gtk_progress_bar_text_set[] = {"progress-bar", "text"};
+    size_t arg_names_len_gtk_progress_bar_text_set[] = {12, 4};
+    fun_shape_t fun_shape_gtk_progress_bar_text_set = new_function_shape(arg_names_gtk_progress_bar_text_set, 2, arg_names_len_gtk_progress_bar_text_set);
+    bindings_add_binding(bindings, "lispy_gtk_progress_bar_text_set", 31, "progress-bar-text-set!", 22, fun_shape_gtk_progress_bar_text_set);
+
+    char* arg_names_gtk_progress_bar_text_get[] = {"progress-bar"};
+    size_t arg_names_len_gtk_progress_bar_text_get[] = {12};
+    fun_shape_t fun_shape_gtk_progress_bar_text_get = new_function_shape(arg_names_gtk_progress_bar_text_get, 1, arg_names_len_gtk_progress_bar_text_get);
+    bindings_add_binding(bindings, "lispy_gtk_progress_bar_text_get", 31, "progress-bar-text-get", 21, fun_shape_gtk_progress_bar_text_get);
+
+    char* arg_names_gtk_progress_bar_show_text_set[] = {"progress-bar", "show-text"};
+    size_t arg_names_len_gtk_progress_bar_show_text_set[] = {12, 9};
+    fun_shape_t fun_shape_gtk_progress_bar_show_text_set = new_function_shape(arg_names_gtk_progress_bar_show_text_set, 2, arg_names_len_gtk_progress_bar_show_text_set);
+    bindings_add_binding(bindings, "lispy_gtk_progress_bar_show_text_set", 36, "progress-bar-show-text-set!", 27, fun_shape_gtk_progress_bar_show_text_set);
+
+    
+    /* Scroll Bar */
     char* arg_names_gtk_scroll_bar_vertical_new[] = {};
     size_t arg_names_len_gtk_scroll_bar_vertical_new[] = {};
     fun_shape_t fun_shape_gtk_scroll_bar_vertical_new = new_function_shape(arg_names_gtk_scroll_bar_vertical_new, 0, arg_names_len_gtk_scroll_bar_vertical_new);
@@ -819,11 +1353,49 @@ void lispy_load_module(bindings_t bindings) {
     fun_shape_t fun_shape_gtk_scroll_bar_horizontal_new = new_function_shape(arg_names_gtk_scroll_bar_horizontal_new, 0, arg_names_len_gtk_scroll_bar_horizontal_new);
     bindings_add_binding(bindings, "lispy_gtk_scroll_bar_horizontal_new", 36, "scroll-bar-horizontal-new", 25, fun_shape_gtk_scroll_bar_horizontal_new);
 
+    char* arg_names_gtk_scroll_bar_adjustment_get[] = {"scroll-bar"};
+    size_t arg_names_len_gtk_scroll_bar_adjustment_get[] = {10};
+    fun_shape_t fun_shape_gtk_scroll_bar_adjustment_get = new_function_shape(arg_names_gtk_scroll_bar_adjustment_get, 1, arg_names_len_gtk_scroll_bar_adjustment_get);
+    bindings_add_binding(bindings, "lispy_gtk_scroll_bar_adjustment_get", 35, "scroll-bar-adjustment-get", 25, fun_shape_gtk_scroll_bar_adjustment_get);
 
-    
+    char* arg_names_gtk_scroll_bar_adjustment_set[] = {"scroll-bar", "adjustment"};
+    size_t arg_names_len_gtk_scroll_bar_adjustment_set[] = {10, 10};
+    fun_shape_t fun_shape_gtk_scroll_bar_adjustment_set = new_function_shape(arg_names_gtk_scroll_bar_adjustment_set, 2, arg_names_len_gtk_scroll_bar_adjustment_set);
+    bindings_add_binding(bindings, "lispy_gtk_scroll_bar_adjustment_set", 36, "scroll-bar-adjustment-set!", 27, fun_shape_gtk_scroll_bar_adjustment_set);
 
-  char* arg_names_gtk_label_button_new[] = {"label"};
-  size_t arg_names_len_gtk_label_button_new[] = {6};
+    /* Image */
+
+    char* arg_names_gtk_image_new[] = {};
+    size_t arg_names_len_gtk_image_new[] = {};
+    fun_shape_t fun_shape_gtk_image_new = new_function_shape(arg_names_gtk_image_new, 0, arg_names_len_gtk_image_new);
+    bindings_add_binding(bindings, "lispy_gtk_image_new", 19, "image-new", 9, fun_shape_gtk_image_new);
+
+    char* arg_names_gtk_image_from_file_set[] = {"image", "filename"};
+    size_t arg_names_len_gtk_image_from_file_set[] = {5, 8};
+    fun_shape_t fun_shape_gtk_image_from_file_set = new_function_shape(arg_names_gtk_image_from_file_set, 2, arg_names_len_gtk_image_from_file_set);
+    bindings_add_binding(bindings, "lispy_gtk_image_from_file_set", 29, "image-from-file-set!", 20, fun_shape_gtk_image_from_file_set);
+
+    char* arg_names_gtk_image_from_icon_name_set[] = {"image", "icon-name"};
+    size_t arg_names_len_gtk_image_from_icon_name_set[] = {5, 9};
+    fun_shape_t fun_shape_gtk_image_from_icon_name_set = new_function_shape(arg_names_gtk_image_from_icon_name_set, 2, arg_names_len_gtk_image_from_icon_name_set);
+    bindings_add_binding(bindings, "lispy_gtk_image_from_icon_name_set", 34, "image-from-icon-name-set!", 25, fun_shape_gtk_image_from_icon_name_set);
+
+    char* arg_names_gtk_image_from_gicon_set[] = {"image", "icon"};
+    size_t arg_names_len_gtk_image_from_gicon_set[] = {5, 4};
+    fun_shape_t fun_shape_gtk_image_from_gicon_set = new_function_shape(arg_names_gtk_image_from_gicon_set, 2, arg_names_len_gtk_image_from_gicon_set);
+    bindings_add_binding(bindings, "lispy_gtk_image_from_gicon_set", 30, "image-from-gicon-set!", 21, fun_shape_gtk_image_from_gicon_set);
+
+    char* arg_names_gtk_image_from_resource_set[] = {"image", "resource-path"};
+    size_t arg_names_len_gtk_image_from_resource_set[] = {5, 12};
+    fun_shape_t fun_shape_gtk_image_from_resource_set = new_function_shape(arg_names_gtk_image_from_resource_set, 2, arg_names_len_gtk_image_from_resource_set);
+    bindings_add_binding(bindings, "lispy_gtk_image_from_resource_set", 33, "image-from-resource-set!", 24, fun_shape_gtk_image_from_resource_set);
+
+
+
+    /* Label Button */
+
+    char* arg_names_gtk_label_button_new[] = {"label"};
+    size_t arg_names_len_gtk_label_button_new[] = {6};
   fun_shape_t fun_shape_gtk_label_button_new = new_function_shape(arg_names_gtk_label_button_new, 1, arg_names_len_gtk_label_button_new);
   bindings_add_binding(bindings, "lispy_gtk_label_button_new", 26, "label-button-new", 16, fun_shape_gtk_label_button_new);
 
