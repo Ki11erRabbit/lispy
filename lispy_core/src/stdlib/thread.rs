@@ -129,7 +129,6 @@ fn stdlib_thread_is_named(_: &mut Context, _: Vec<Value>, _: Kwargs) -> HelperRe
 }
 
 pub fn get_thread_library(context: &mut Context) -> Module {
-    let submodules = HashMap::new();
     context.push_frame(None);
 
     context.define("spawn", Value::new_function(Function::Native(stdlib_spawn, stdlib_spawn_shape()), context));
@@ -140,5 +139,5 @@ pub fn get_thread_library(context: &mut Context) -> Module {
 
     let frame = context.pop_frame().expect("pop error");
 
-    Module::new_loaded(submodules, frame)
+    Module::new_loaded(frame)
 }

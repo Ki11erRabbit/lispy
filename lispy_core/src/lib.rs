@@ -29,7 +29,7 @@ pub fn run_from_file(file_name: &str, so_load_path: &str) -> Result<(), Box<dyn 
     });
 
     crate::ffi::load_dynamic_libs(&mut context, "ffi", ".")?;
-    interpreter::walkthrough::run(file, &mut context, &vec!["main".to_string()])?;
+    interpreter::walkthrough::run(file, &mut context, &vec![])?;
 
     //interpreter::walk_through::run(file, &mut context, &vec!["main".to_string()])?;
     

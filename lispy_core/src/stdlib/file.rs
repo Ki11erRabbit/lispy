@@ -128,7 +128,6 @@ fn stdlib_close(context: &mut Context, args: Vec<Value>, keyword_args: Kwargs) -
 }
 
 pub fn get_file_library(context: &mut Context) -> Module {
-    let submodules = HashMap::new();
     context.push_frame(None);
 
     context.define("open", Value::new_function(Function::Native(stdlib_open, stdlib_open_shape()), context));
@@ -138,5 +137,5 @@ pub fn get_file_library(context: &mut Context) -> Module {
 		   
     let frame = context.pop_frame().expect("pop error");
     
-    Module::new_loaded(submodules, frame)
+    Module::new_loaded(frame)
 }

@@ -22,14 +22,14 @@
 
 
 
-(define (run-gui root-init app-name) 
+(define (gui-run root-init app-name) 
   (let [(root-init root-init)
         (activate (lambda (app) 
                     (let [(window (gtk.application-window-new app))]
                           (begin
                             (gtk.window-child-set! window (root-init "plank"))
-                            (gtk.window-present window)))))]
-    (let [(app (gtk.application-new app-name))]
+                            (gtk.window-present window)))))
+        (app (gtk.application-new app-name))]
       (begin
         (gtk.g-signal-connect app "activate" activate)
-        (gtk.g-application-run app)))))
+        (gtk.g-application-run app))))

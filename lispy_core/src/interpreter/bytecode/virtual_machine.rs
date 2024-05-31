@@ -78,7 +78,8 @@ impl<'a> VirtualMachine<'a> {
 		RawBytecode::Load => {
 		    let symbol = self.stack.pop().expect("stack is empty");
 		    let symbol = symbol.get_symbol(context)?;
-		    let Some(value) = context.get(symbol, module_name) else {
+		    let path = module_name.iter().chain(symbol.iter()).map(|s| s.clone()).collect();
+		    let Some(value) = context.get(path) else {
 			return Err(Box::new(Exception::new(symbol, "symbol not found", context)));
 		    };
 		    self.stack.push(value);

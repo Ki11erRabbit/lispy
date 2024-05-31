@@ -6,7 +6,6 @@ use crate::interpreter::value::function::FunctionShape;
 use crate::interpreter::value::Value;
 use crate::interpreter::context::Context;
 use crate::interpreter::module::Module;
-use crate::interpreter::InterpreterResult;
 use crate::interpreter::kwargs::Kwargs;
 
 
@@ -107,7 +106,6 @@ fn stdlib_mpsc_try_receive(context: &mut Context, args: Vec<Value>, kwargs: Kwar
 }
 
 pub fn get_sync_library(context: &mut Context) -> Module {
-    let submodules = HashMap::new();
     context.push_frame(None);
 
     context.define("mpsc-channel", Value::new_function(Function::Native(stdlib_mpsc_channel, stdlib_mpsc_channel_shape()), context));
@@ -118,6 +116,6 @@ pub fn get_sync_library(context: &mut Context) -> Module {
 
     let frame = context.pop_frame().expect("pop error");
 
-    Module::new_loaded(submodules, frame)
+    Module::new_loaded(frame)
 }
 

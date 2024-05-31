@@ -3,10 +3,10 @@
 (struct gui [vbox-new vbox-add hbox-new hbox-add button-new button-on-click-set! label-new label-text-set!])
 
 
-(define (run-application app-name root-component handle-message)
+(define (run-application app-name root handle-message)
   (begin
-    (thread.spawn (lambda () (gui-run root-component app-name)))
-    (while #t (handle-message))))
+    (thread.spawn (lambda () (while #t (handle-message))))
+    (gui-run root app-name)))
 
 ; Built in components
 (define (virtical-box)
@@ -20,7 +20,7 @@
 (define (label) (core.label))
 (define (label-text-set! label text) (core.label-text-set! label text))
 
-(define (run-gui root app-name) (core.gui-run root app-name))
+(define (gui-run root app-name) (core.gui-run root app-name))
 
 (define (init-gui path)
   (begin

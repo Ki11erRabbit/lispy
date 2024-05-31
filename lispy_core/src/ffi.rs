@@ -59,7 +59,6 @@ pub fn load_dynamic_libs(context: &mut Context, module_name: &str, load_path: &s
 	    let lib = libloading::Library::new(path)?;
 	    let load_module = lib.get::<unsafe extern "C" fn(*mut Bindings)>(b"lispy_load_module")?;
 
-	    let sub_modules = HashMap::new();
 	    context.push_frame(None);
 
 	    let mut bindings = Bindings::new();
@@ -75,7 +74,7 @@ pub fn load_dynamic_libs(context: &mut Context, module_name: &str, load_path: &s
 	    }
 	    
 	    let frame = context.pop_frame().ok_or("frame not found")?;
-	    let module = Module::new_loaded(sub_modules, frame);
+	    let module = Module::new_loaded(frame);
 	    context.add_module(module_name, module);
 	    context.add_dynamic_lib(lib);
 	}
@@ -83,13 +82,12 @@ pub fn load_dynamic_libs(context: &mut Context, module_name: &str, load_path: &s
     Ok(())
 }
 
-pub fn load_dynamic_lib(context: &mut Context, module_name: &str, load_path: &str) -> Result<(), Box<dyn std::error::Error>> {
+pub fn load_dynamic_lib(context: &mut Context, load_path: &str) -> Result<Module, Box<dyn std::error::Error>> {
     unsafe {
 	let path = load_path;
 	let lib = libloading::Library::new(path)?;
 	let load_module = lib.get::<unsafe extern "C" fn(*mut Bindings)>(b"lispy_load_module")?;
 
-	let sub_modules = HashMap::new();
 	context.push_frame(None);
 
 	let mut bindings = Bindings::new();
@@ -105,11 +103,10 @@ pub fn load_dynamic_lib(context: &mut Context, module_name: &str, load_path: &st
 	}
 
 	let frame = context.pop_frame().ok_or("frame not found")?;
-	let module = Module::new_loaded(sub_modules, frame);
-	context.add_module(module_name, module);
+	let module = Module::new_loaded(frame);
 	context.add_dynamic_lib(lib);
+	Ok(module)
     }
-    Ok(())
 }
 
 pub fn load_dynamic_lib_into(context: &mut Context, load_path: &str) -> Result<(), Box<dyn std::error::Error>> {

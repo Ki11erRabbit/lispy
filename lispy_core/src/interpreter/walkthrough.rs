@@ -15,9 +15,6 @@ pub fn run(file: File, context: &mut Context, module_name: &Vec<String>) -> Resu
 	    }
 	    _ => {},
 	}
-	if crate::gc::is_gc_on() {
-	    context.garbage_collect();
-	}
     }
     Ok(())
 }
@@ -26,6 +23,9 @@ pub fn run(file: File, context: &mut Context, module_name: &Vec<String>) -> Resu
 
 
 pub fn walk_through(sexpr: &Sexpr, context: &mut Context, module_name: &Vec<String>) -> InterpreterResult {
+    if crate::gc::is_gc_on() {
+	context.garbage_collect();
+    }
     match sexpr {
         Sexpr::Atom(atom) => {
             match atom {
@@ -43,15 +43,10 @@ pub fn walk_through(sexpr: &Sexpr, context: &mut Context, module_name: &Vec<Stri
                     Ok(Some(Value::new_boolean(*b)))
                 }
                 Atom::Symbol(s) => {
-                    match context.get(&s, module_name) {
+		    let path = module_name.iter().chain(s.iter()).map(|s| s.clone()).collect();
+                    match context.get(path) {
                         Some(value) => Ok(Some(value.clone())),
-                        None => {
-			    let new_path = module_name.iter().chain(s.iter()).map(|s| s.clone()).collect();
-			    match context.get(&new_path, module_name) {
-				Some(value) => Ok(Some(value.clone())),
-				None => Err(Box::new(Exception::new(&new_path, "not bound", context)))
-			    }
-			},
+			None => Err(Box::new(Exception::new(&module_name.iter().chain(s.iter()).map(|s| s.clone()).collect(), "not bound", context))),
                     }
                 }
                 Atom::QuotedSymbol(s) => {
@@ -273,7 +268,6 @@ fn walk_through_begin(list: &Vec<Sexpr>, context: &mut Context, module_name: &Ve
 }
 
 fn walk_through_import(list: &Vec<Sexpr>, context: &mut Context, module_name: &Vec<String>) -> InterpreterResult {
-    println!("{:?}", list);
     match list.as_slice() {
 	[_, path, name] => {
 	    let path = walk_through(path, context, module_name)?.ok_or(Box::new(Exception::new(&vec!["import"], "not a string", context)))?;
@@ -282,39 +276,10 @@ fn walk_through_import(list: &Vec<Sexpr>, context: &mut Context, module_name: &V
 	    let name = walk_through(name, context, module_name)?.ok_or(Box::new(Exception::new(&vec!["import"], "not a symbol", context)))?;
 	    let name = name.get_symbol(context)?;
 
+	    let module_path = module_name.iter().chain(name.iter()).map(|s| s.clone()).collect();
 
-	    let module = Module::new(path, name.clone());
-	    let name = if name.len() > 1 {
-		return Err(Box::new(Exception::new(&vec!["import"], "symbol must be singular", context)));
-	    } else {
-		&name[0]
-	    };
-	    let file_path = std::path::Path::new(&path);
-	    let file_path = file_path.canonicalize().map_err(|err| Box::new(Exception::new(&vec!["import"], &format!("{}", err), context)))?;
-	    let canonical_path = file_path.clone();
-	    let canonical_path = canonical_path.to_str().unwrap();
-	    if !file_path.exists() {
-		return Err(Box::new(Exception::new(&vec!["import"], "file not found", context)));
-	    }
-	    if !file_path.is_file() {
-		return Err(Box::new(Exception::new(&vec!["import"], "not a file", context)));
-	    }
-	    let file_path = file_path.as_path();
-	    match file_path.extension().map(|ext| ext.to_str().unwrap()) {
-		Some("so") | Some("dll") | Some("dylib") => {
-		    crate::ffi::load_dynamic_lib(context, name, canonical_path).map_err(|err| Box::new(Exception::new(&vec!["import"], &format!("{}", err), context)))?;
-		    return Ok(None);
-		}
-		_ => {}
-	    }
+	    context.add_module_from_file(path, module_path)?;
 
-	    let mut path: Vec<String> = if module_name[0].as_str() == "main" {
-		Vec::new()
-	    } else {
-		module_name.iter().map(|s| s.clone()).collect()
-	    };
-	    path.push(name.clone());
-	    context.add_module_with_path(&path, module);
 	    Ok(None)
 	}
 	[_, path] => {
@@ -367,18 +332,20 @@ fn walk_through_import_from(list: &Vec<Sexpr>, context: &mut Context, module_nam
 		&name[0]
 	    };
 
-	    context.copy_module_into_current(&module_path, name)?;
+	    //context.copy_module_into_current(&module_path, name)?;
 	    
-	    Ok(None)
+	    //Ok(None)
+	    todo!("import-from")
 	}
 	[_, path] => {
 	    let path = walk_through(path, context, module_name)?.ok_or(Box::new(Exception::new(&vec!["import-from"], "not a string", context)))?;
 	    let path = path.get_symbol(context)?;
 
 	    
-	    context.load_module_into_current(&path)?;
+	    //context.load_module_into_current(&path)?;
 	    
-	    Ok(None)
+	    //Ok(None)
+	    todo!("import-from")
 	}
 	_ => Err(Box::new(Exception::new(&vec!["import"], "unusual syntax", context)))
     }
@@ -520,7 +487,8 @@ fn walk_through_call_expr(list: &Vec<Sexpr>, context: &mut Context, module_name:
 	    let name = walk_through(name, context, module_name)?.ok_or(Box::new(Exception::new(&vec!["call"], "not a symbol", context)))?;
 	    let name = name.get_symbol(context)?;
 
-	    let function = match context.get(&name, module_name) {
+	    let path = module_name.iter().chain(name.iter()).map(|s| s.clone()).collect();
+	    let function = match context.get(path) {
 		Some(f) => {
 		    f.get_function(context)?.clone()
 		},
@@ -763,7 +731,8 @@ fn walk_through_while(list: &Vec<Sexpr>, context: &mut Context, module_name: &Ve
 
 fn walk_through_call(list: &Vec<Sexpr>, context: &mut Context, module_name: &Vec<String>) -> InterpreterResult {
     if let Sexpr::Atom(Atom::Symbol(name)) = &list[0] {
-        let function = match context.get(&name, module_name) {
+	let path = module_name.iter().chain(name.iter()).map(|s| s.clone()).collect();
+        let function = match context.get(path) {
             Some(f) => {
                 f.get_function(context)?.clone()
             },

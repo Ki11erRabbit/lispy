@@ -5,7 +5,7 @@ use crate::interpreter::value::Value;
 use crate::interpreter::module::Module;
 use crate::parser::r#macro::Macro;
 use crate::stdlib::get_stdlib;
-use std::sync::{Arc, RwLock, RwLockWriteGuard};
+use std::sync::{Arc, RwLock, RwLockWriteGuard, TryLockError};
 use std::sync::mpsc::Sender;
 use std::cell::RefCell;
 
@@ -134,13 +134,17 @@ impl Context {
 	let mut ctx = Context {
 	    gc_lock,
 	    sender,
-	    modules: RefCell::new(HashMap::new()),
+	    //modules: RefCell::new(HashMap::new()),
 	    frames: vec![],
 	    type_table: Arc::new(RwLock::new(Vec::new())),
 	    symbols_to_table: Arc::new(RwLock::new(HashMap::new())),
 	    enum_idicies: Arc::new(RwLock::new(HashSet::new())),
 	    macros: Arc::new(RwLock::new(HashSet::new())),
 	    dynamic_libraries: Arc::new(RwLock::new(Vec::new())),
+	    files_to_modules: Arc::new(RwLock::new(HashMap::new())),
+	    paths_to_modules: Arc::new(RwLock::new(HashMap::new())),
+	    modules: Arc::new(RwLock::new(Vec::new())),
+
 	};
 	
 	let stdlib = get_stdlib(&mut ctx);
@@ -148,6 +152,15 @@ impl Context {
 
 	let thread = crate::stdlib::thread::get_thread_library(&mut ctx);
 	ctx.add_module("thread", thread);
+
+	let file = crate::stdlib::file::get_file_library(&mut ctx);
+	ctx.add_module("file", file);
+
+	let network = crate::stdlib::network::get_network_library(&mut ctx);
+	ctx.add_module("network", network);
+
+	let sync = crate::stdlib::sync::get_sync_library(&mut ctx);
+	ctx.add_module("sync", sync);
 	
 	ctx
     }
@@ -182,11 +195,13 @@ impl Context {
     }
 
     pub fn is_bound(&self, name: &Vec<String>) -> bool {
-	self.get(name, &vec![]).is_some()
+	self.get(name.clone()).is_some()
     }
 
     fn lookup_module_in_path(&self, name: &[String]) -> Option<usize> {
-	let mut module = self.paths_to_modules.read().unwrap().get(name);
+	let paths_to_modules = self.paths_to_modules.clone();
+	let paths_to_modules = paths_to_modules.read().unwrap();
+	let mut module = paths_to_modules.get(name);
 	if module.is_some() {
 	    return module.cloned();
 	}
@@ -194,23 +209,36 @@ impl Context {
     }
 
     pub fn get(&self, name: Vec<String>) -> Option<Value> {
-	println!("get: {:?} {:?}", name, module_name);
+	//println!("get: {:?}", name);
 
 	let value = self.get_from_frame(&name.last().unwrap());
 	if value.is_some() {
 	    return value.cloned();
 	}
 
-	let module_index = self.lookup_module_in_path(&name.as_slice()[..name.len() - 1]);
-	let Some(module_index) = module_index else {
-	    return None;
-	};
+	let mut slice_index = 0;
 
-	let Some(module) = self.get_module(module_index) else {
-	    return None;
-	};
+	while slice_index < name.len() {
+	    let module_index = self.lookup_module_in_path(&name.as_slice()[slice_index..name.len() - 1]);
+	    let Some(module_index) = module_index else {
+		slice_index += 1;
+		continue;
+	    };
 
-	module.get(&name, self)
+	    let Some(module) = self.get_module(module_index) else {
+		slice_index += 1;
+		continue;
+	    };
+
+	    let value = module.get(&name.last().unwrap(), self);
+	    if value.is_some() {
+		return value;
+	    }
+
+	    slice_index += 1;
+	}
+	
+	None
     }
 
     pub fn define(&mut self, name: &str, value: Value) {
@@ -237,27 +265,66 @@ impl Context {
 		}
 	    }
 	}
-
-	if let Some(module) = self.modules.borrow_mut().get_mut(&name[0]) {
-	    module.rebind(&name.as_slice()[1..], value, self);
-	}
     }
 
     pub fn add_module(&mut self, name: &str, module: Module) {
-	self.modules.borrow_mut().insert(name.to_string(), module);
+	let path = vec![name.to_string()];
+
+	let index = self.modules.read().unwrap().len();
+	self.modules.write().unwrap().push(module);
+
+	self.paths_to_modules.write().unwrap().insert(path, index);
     }
 
-    pub fn add_module_with_path(&mut self, path: &Vec<String>, module_to_add: Module) {
-	if path.len() == 1 {
-	    self.add_module(&path[0], module_to_add);
-	} else {
-	    let module = self.modules.borrow_mut().get_mut(&path[0]).unwrap().clone();
-	    let mut path = path.clone();
-	    path.remove(0);
-	    let name = path.pop().unwrap();
-	    let mut module = module.get_submodule(&path, self).unwrap();
-	    module.add_module(name, module_to_add, self);
+    /// TODO: add way to look on load path (LISPY_LOAD_PATH)
+    pub fn add_module_from_file(&mut self, name: &str, path: Vec<String>) -> HelperResult<()> {
+	let file_path = std::path::Path::new(name);
+	let file_path = file_path.canonicalize()
+	    .map_err(|err| Box::new(Exception::new(&vec!["import"], &format!("{}", err), self)))?;
+
+	let file_path_str = file_path.clone();
+	let file_path_str = file_path_str.to_str()
+	    .ok_or(Box::new(Exception::new(&vec!["import"], "path is invalid string", self)))?;
+	
+	if let Some(index) = self.files_to_modules.read().unwrap().get(file_path_str) {
+	    self.paths_to_modules.write().unwrap().insert(path, *index);
+	    return Ok(());
 	}
+
+	if !file_path.exists() {
+	    return Err(Box::new(Exception::new(&vec!["import"], "file does not exist", self)));
+	}
+	if !file_path.is_file() {
+	    return Err(Box::new(Exception::new(&vec!["import"], "not a file", self)));
+	}
+
+	let module = match file_path.as_path().extension().map(|ext| ext.to_str().unwrap()) {
+	    Some("so") | Some("dll") | Some("dylib") => {
+		println!("\nLoading dynamic lib\n");
+		crate::ffi::load_dynamic_lib(self, file_path_str)
+		    .map_err(|err| Box::new(Exception::new(&vec!["import"], &format!("{}", err), self)))?
+	    }
+	    _ => {
+		Module::new(file_path_str, path.clone())
+	    }
+	};
+
+	let index = self.modules.read().unwrap().len();
+	self.modules.write().unwrap().push(module);
+
+	self.files_to_modules.write().unwrap().insert(file_path_str.to_string(), index);
+	let mut slice_index = 0;
+	while slice_index < path.len() {
+	    self.paths_to_modules.write().unwrap().insert(path.as_slice()[slice_index..].to_vec(), index);
+	    slice_index += 1;
+	}
+	//self.paths_to_modules.write().unwrap().insert(path, index);
+
+	Ok(())
+    }
+
+    fn get_module(&self, index: usize) -> Option<Module> {
+	self.modules.read().unwrap().get(index).cloned()
     }
     
     pub fn garbage_collect(&mut self) {
@@ -265,11 +332,23 @@ impl Context {
 	for frame in self.frames.iter_mut() {
 	    frame.mark();
 	}
-	for (_, module) in self.modules.borrow_mut().iter_mut() {
-	    module.mark();
+	match self.modules.try_write() {
+	    Ok(mut modules) => {
+		for module in modules.iter_mut() {
+		    module.mark();
+		}
+	    },
+	    Err(TryLockError::WouldBlock) => {},
+	    Err(TryLockError::Poisoned(_)) => {},
 	}
-	for value in self.type_table.write().unwrap().iter() {
-	    value.mark();
+	match self.type_table.try_write() {
+	    Ok(mut type_table) => {
+		for value in type_table.iter_mut() {
+		    value.mark();
+		}
+	    },
+	    Err(TryLockError::WouldBlock) => {},
+	    Err(TryLockError::Poisoned(_)) => {},
 	}
 	drop(lock);
 	while gc::is_gc_on() {
@@ -278,11 +357,23 @@ impl Context {
 	for frame in self.frames.iter_mut() {
 	    frame.unmark();
 	}
-	for (_, module) in self.modules.borrow_mut().iter_mut() {
-	    module.unmark();
+	match self.modules.try_write() {
+	    Ok(mut modules) => {
+		for module in modules.iter_mut() {
+		    module.unmark();
+		}
+	    },
+	    Err(TryLockError::WouldBlock) => {},
+	    Err(TryLockError::Poisoned(_)) => {},
 	}
-	for value in self.type_table.write().unwrap().iter() {
-	    value.unmark();
+	match self.type_table.try_write() {
+	    Ok(mut type_table) => {
+		for value in type_table.iter_mut() {
+		    value.unmark();
+		}
+	    },
+	    Err(TryLockError::WouldBlock) => {},
+	    Err(TryLockError::Poisoned(_)) => {},
 	}
 	
     }
@@ -292,11 +383,24 @@ impl Context {
 	for frame in self.frames.iter_mut() {
 	    frame.mark();
 	}
-	for (_, module) in self.modules.borrow_mut().iter_mut() {
-	    module.mark();
+
+	match self.modules.try_write() {
+	    Ok(mut modules) => {
+		for module in modules.iter_mut() {
+		    module.mark();
+		}
+	    },
+	    Err(TryLockError::WouldBlock) => {},
+	    Err(TryLockError::Poisoned(_)) => {},
 	}
-	for value in self.type_table.write().unwrap().iter() {
-	    value.mark();
+	match self.type_table.try_write() {
+	    Ok(mut type_table) => {
+		for value in type_table.iter_mut() {
+		    value.mark();
+		}
+	    },
+	    Err(TryLockError::WouldBlock) => {},
+	    Err(TryLockError::Poisoned(_)) => {},
 	}
 	for value in stack.iter() {
 	    value.mark();
@@ -309,11 +413,23 @@ impl Context {
 	for frame in self.frames.iter_mut() {
 	    frame.unmark();
 	}
-	for (_, module) in self.modules.borrow_mut().iter_mut() {
-	    module.unmark();
+	match self.modules.try_write() {
+	    Ok(mut modules) => {
+		for module in modules.iter_mut() {
+		    module.unmark();
+		}
+	    },
+	    Err(TryLockError::WouldBlock) => {},
+	    Err(TryLockError::Poisoned(_)) => {},
 	}
-	for value in self.type_table.write().unwrap().iter() {
-	    value.unmark();
+	match self.type_table.try_write() {
+	    Ok(mut type_table) => {
+		for value in type_table.iter_mut() {
+		    value.unmark();
+		}
+	    },
+	    Err(TryLockError::WouldBlock) => {},
+	    Err(TryLockError::Poisoned(_)) => {},
 	}
 	for value in stack.iter() {
 	    value.unmark();
@@ -323,24 +439,6 @@ impl Context {
 
     pub fn send_gc(&self, gc: Gc<GcValue>) {
 	self.sender.send(gc).unwrap();
-    }
-
-    pub fn module_list(&self) -> HashSet<String> {
-	self.modules.borrow().keys().cloned().collect()
-    }
-
-    pub fn remove_module(&mut self, name: &str) -> Option<Module> {
-	self.modules.borrow_mut().remove(name)
-    }
-
-    pub fn pop_modules(&mut self) -> HashMap<String, Module> {
-	self.modules.borrow_mut().drain().collect()
-    }
-
-    pub fn add_modules(&mut self, modules: HashMap<String, Module>) {
-	for (name, module) in modules {
-	    self.modules.borrow_mut().insert(name, module);
-	}
     }
 
     pub fn get_type_symbol(&self, index: usize) -> Value {
@@ -406,7 +504,7 @@ impl Context {
 	dynamic_libraries.push(lib);
     }
 
-    pub fn copy_module_into_current(&self, module_path: &Vec<String>, name: &String) -> HelperResult<()> {
+    /*pub fn copy_module_into_current(&self, module_path: &Vec<String>, name: &String) -> HelperResult<()> {
 	match self.modules.borrow().get(&module_path[0]) {
 	    None => Err(Box::new(Exception::new(&vec!["import-from"], "module not found", self))),
 	    Some(module) => {
@@ -440,7 +538,7 @@ impl Context {
 
 	self.frames.last_mut().unwrap().merge_frame(frame);
 	Ok(())
-    }
+    }*/
 	
 }
 
@@ -494,13 +592,15 @@ impl Clone for Context {
 	Context {
 	    gc_lock: self.gc_lock.clone(),
 	    sender: self.sender.clone(),
-	    modules: RefCell::new(HashMap::new()),
 	    frames: Vec::new(),
 	    type_table: self.type_table.clone(),
 	    symbols_to_table: self.symbols_to_table.clone(),
 	    enum_idicies: self.enum_idicies.clone(),
 	    macros: self.macros.clone(),
 	    dynamic_libraries: self.dynamic_libraries.clone(),
+	    files_to_modules: self.files_to_modules.clone(),
+	    paths_to_modules: self.paths_to_modules.clone(),
+	    modules: self.modules.clone(),
 	}
     }
 }
